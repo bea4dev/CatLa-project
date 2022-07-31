@@ -44,10 +44,20 @@ void HeapManager::try_to_release_fields(TreeHeapObject* object, size_t runtime_o
 
 void HeapManager::show_heap_info() {
     printf("======  Heap memory info  ======\n");
+    bool all_released = true;
     for (size_t i = 1; i < static_runtime_object_id; i++) {
-        printf("%zu : %s\n", i, heap_manager->is_released(i) ? "Released" : "Leaving");
+        bool is_released = heap_manager->is_released(i);
+        if (!is_released) {
+            all_released = false;
+        }
+
+        printf("%zu : %s\n", i, is_released ? "Released" : "Leaving");
     }
     printf("================================\n");
+
+    if (all_released) {
+        printf("Released all!\n");
+    }
 }
 
 

@@ -51,7 +51,7 @@ namespace heap {
 
     class HeapManagerCell {
 
-    private:
+    public:
         HeapManager* manager;
         vector<uint8_t> released_ids;
         mutex lock;
