@@ -38,14 +38,14 @@ bool HeapManager::collect_and_check_roots_to_release(TreeHeapObject* object, siz
     return heap_info_cells[runtime_object_id % cells_size]->collect_and_check_roots_to_release(object, runtime_object_id, roots_copy);
 }
 
-void HeapManager::try_to_release_feilds(TreeHeapObject* object, size_t runtime_object_id, vector<HeapObjectIdPair*>* tree_fields) {
-    heap_info_cells[runtime_object_id % cells_size]->try_to_release_feilds(object, runtime_object_id, tree_fields);
+void HeapManager::try_to_release_fields(TreeHeapObject* object, size_t runtime_object_id, vector<HeapObjectIdPair*>* tree_fields) {
+    heap_info_cells[runtime_object_id % cells_size]->try_to_release_fields(object, runtime_object_id, tree_fields);
 }
 
 void HeapManager::show_heap_info() {
     printf("======  Heap memory info  ======\n");
     for (size_t i = 1; i < static_runtime_object_id; i++) {
-        printf("%u : %s\n", i, heap_manager->is_released(i) ? "Released" : "Leaving");
+        printf("%zu : %s\n", i, heap_manager->is_released(i) ? "Released" : "Leaving");
     }
     printf("================================\n");
 }
@@ -171,14 +171,17 @@ bool HeapManagerCell::collect_and_check_roots_to_release(TreeHeapObject* object,
     }
 
     object->lock.lock();
-    copy(object->held_roots.begin(), object->held_roots.end(), back_inserter(*roots_copy));
+    for (auto it = object->held_roots.begin(); it != object->held_roots.end(); ++it) {
+        HeapObjectIdPair* pair = (*it);
+        roots_copy->push_back(pair->clone());
+    }
     object->lock.unlock();
 
     lock.unlock();
     return true;
 }
 
-void HeapManagerCell::try_to_release_feilds(TreeHeapObject* object, size_t runtime_object_id, vector<HeapObjectIdPair*>* tree_fields) {
+void HeapManagerCell::try_to_release_fields(TreeHeapObject* object, size_t runtime_object_id, vector<HeapObjectIdPair*>* tree_fields) {
     size_t index = runtime_object_id / manager->cells_size;
     size_t array_index = index / 8;
     size_t byte_index = index % 8;
