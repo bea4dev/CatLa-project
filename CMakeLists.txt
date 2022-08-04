@@ -14,8 +14,11 @@ add_executable(catla
         src/CatLa.cpp
         src/heap/HeapManager.cpp
         src/heap/HeapObject.cpp
-        src/modules/CatLaClass.cpp
-        src/modules/ClassField.cpp
+        src/vm/modules/CatLaClass.cpp
+        src/vm/modules/ClassField.cpp
+        src/vm/modules/CodeBlock.cpp
+        src/vm/modules/CatLaModule.cpp
+        src/vm/modules/CatLaFunction.cpp
         src/util/TypeUtil.hpp
         src/vm/CatVM.cpp
         )

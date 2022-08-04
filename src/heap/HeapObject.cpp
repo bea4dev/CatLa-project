@@ -6,7 +6,6 @@
 
 using namespace std;
 using namespace heap;
-using namespace modules;
 
 
 atomic_size_t static_runtime_object_id;

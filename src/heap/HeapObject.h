@@ -1,7 +1,7 @@
 #pragma once
 
-#include <stdint.h>
-#include <stdio.h>
+#include <cstdint>
+#include <cstdio>
 #include <atomic>
 #include <mutex>
 #include <vector>
@@ -9,7 +9,6 @@
 #include "heap.h"
 
 using namespace std;
-using namespace modules;
 
 
 extern atomic_size_t static_runtime_object_id;
@@ -52,7 +51,7 @@ namespace heap {
     class ReferenceCounterObject : public HeapObject {
     public:
         size_t runtime_object_id;
-        atomic_size_t normal_reference_count = 0;
+        atomic_size_t normal_reference_count;
 
         ReferenceCounterObject();
     };
