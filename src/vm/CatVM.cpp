@@ -58,11 +58,8 @@ void CatVM::run(const CodeBlock* code_block) {
             case opcode::push_const : {
                 size_t index = byte_code[i + 1] << 8;
                 index |= byte_code[i + 2];
-
                 uint64_t value = const_values[index];
-                //printf("push_const : %zu, %d\n", index, value);
                 stack.push(value);
-
                 i += 2;
                 break;
             }
@@ -137,6 +134,30 @@ void CatVM::run(const CodeBlock* code_block) {
                 break;
             }
 
+            case opcode::i8_l_shift : {
+                break;
+            }
+
+            case opcode::i8_r_shift : {
+                break;
+            }
+
+            case opcode::i8_ur_shift : {
+                break;
+            }
+
+            case opcode::i8_and : {
+                break;
+            }
+
+            case opcode::i8_or : {
+                break;
+            }
+
+            case opcode::i8_xor : {
+                break;
+            }
+
             case opcode::i16_add : {
                 break;
             }
@@ -157,88 +178,225 @@ void CatVM::run(const CodeBlock* code_block) {
                 break;
             }
 
+            case opcode::i16_l_shift : {
+                break;
+            }
+
+            case opcode::i16_r_shift : {
+                break;
+            }
+
+            case opcode::i16_ur_shift : {
+                break;
+            }
+
+            case opcode::i16_and : {
+                break;
+            }
+
+            case opcode::i16_or : {
+                break;
+            }
+
+            case opcode::i16_xor : {
+                break;
+            }
+
             case opcode::i32_add : {
-                auto i1 = *((int32_t *)&stack.top());
+                auto i1 = *((int32_t*)&stack.top());
                 stack.pop();
-
-                auto i2 = *((int32_t *)&stack.top());
+                auto i2 = *((int32_t*)&stack.top());
                 stack.pop();
-
-                //printf("i32_add : %d\n", i2 + i1);
-
                 stack.push(i2 + i1);
                 break;
             }
 
             case opcode::i32_sub : {
-                auto i1 = *((int32_t *)&stack.top());
+                auto i1 = *((int32_t*)&stack.top());
                 stack.pop();
-
-                auto i2 = *((int32_t *)&stack.top());
+                auto i2 = *((int32_t*)&stack.top());
                 stack.pop();
-
-                //printf("i32_sub : %d\n", i2 - i1);
-
                 stack.push(i2 - i1);
                 break;
             }
 
             case opcode::i32_mul : {
-                auto i1 = *((int32_t *)&stack.top());
+                auto i1 = *((int32_t*)&stack.top());
                 stack.pop();
-
-                auto i2 = *((int32_t *)&stack.top());
+                auto i2 = *((int32_t*)&stack.top());
                 stack.pop();
-
-                //printf("i32_mul : %d\n", i2 * i1);
-
                 stack.push(i2 * i1);
                 break;
             }
 
             case opcode::i32_div : {
-                auto i1 = *((int32_t *)&stack.top());
+                auto i1 = *((int32_t*)&stack.top());
                 stack.pop();
-
-                auto i2 = *((int32_t *)&stack.top());
+                auto i2 = *((int32_t*)&stack.top());
                 stack.pop();
-
-                //printf("i32_div : %d\n", i2 / i1);
-
                 stack.push(i2 / i1);
                 break;
             }
 
             case opcode::i32_rem : {
-                auto i1 = *((int32_t *)&stack.top());
+                auto i1 = *((int32_t*)&stack.top());
                 stack.pop();
-
-                auto i2 = *((int32_t *)&stack.top());
+                auto i2 = *((int32_t*)&stack.top());
                 stack.pop();
+                stack.push(i2 % i1);
+                break;
+            }
 
-                //printf("i32_rem : %d\n", i1 % i2);
+            case opcode::i32_l_shift : {
+                auto i1 = *((int32_t*)&stack.top());
+                stack.pop();
+                auto i2 = *((int32_t*)&stack.top());
+                stack.pop();
+                stack.push(i2 << i1);
+                break;
+            }
 
-                stack.push(i1 % i2);
+            case opcode::i32_r_shift : {
+                auto i1 = *((int32_t*)&stack.top());
+                stack.pop();
+                auto i2 = *((int32_t*)&stack.top());
+                stack.pop();
+                stack.push(i2 >> i1);
+                break;
+            }
+
+            case opcode::i32_ur_shift : {
+                auto i1 = *((uint32_t*)&stack.top());
+                stack.pop();
+                auto i2 = *((uint32_t*)&stack.top());
+                stack.pop();
+                stack.push(i2 >> i1);
+                break;
+            }
+
+            case opcode::i32_and : {
+                auto i1 = *((uint32_t*)&stack.top());
+                stack.pop();
+                auto i2 = *((uint32_t*)&stack.top());
+                stack.pop();
+                stack.push(i2 & i1);
+                break;
+            }
+
+            case opcode::i32_or : {
+                auto i1 = *((uint32_t*)&stack.top());
+                stack.pop();
+                auto i2 = *((uint32_t*)&stack.top());
+                stack.pop();
+                stack.push(i2 | i1);
+                break;
+            }
+
+            case opcode::i32_xor : {
+                auto i1 = *((uint32_t*)&stack.top());
+                stack.pop();
+                auto i2 = *((uint32_t*)&stack.top());
+                stack.pop();
+                stack.push(i2 ^ i1);
                 break;
             }
 
             case opcode::i64_add : {
+                auto i1 = *((int64_t*)&stack.top());
+                stack.pop();
+                auto i2 = *((int64_t*)&stack.top());
+                stack.pop();
+                stack.push(i2 + i1);
                 break;
             }
 
             case opcode::i64_sub : {
+                auto i1 = *((int64_t*)&stack.top());
+                stack.pop();
+                auto i2 = *((int64_t*)&stack.top());
+                stack.pop();
+                stack.push(i2 - i1);
                 break;
             }
 
             case opcode::i64_mul : {
+                auto i1 = *((int64_t*)&stack.top());
+                stack.pop();
+                auto i2 = *((int64_t*)&stack.top());
+                stack.pop();
+                stack.push(i2 * i1);
                 break;
             }
 
             case opcode::i64_div : {
+                auto i1 = *((int64_t*)&stack.top());
+                stack.pop();
+                auto i2 = *((int64_t*)&stack.top());
+                stack.pop();
+                stack.push(i2 / i1);
                 break;
             }
 
             case opcode::i64_rem : {
+                auto i1 = *((int64_t*)&stack.top());
+                stack.pop();
+                auto i2 = *((int64_t*)&stack.top());
+                stack.pop();
+                stack.push(i2 % i1);
+                break;
+            }
+
+            case opcode::i64_l_shift : {
+                auto i1 = *((int64_t*)&stack.top());
+                stack.pop();
+                auto i2 = *((int64_t*)&stack.top());
+                stack.pop();
+                stack.push(i2 << i1);
+                break;
+            }
+
+            case opcode::i64_r_shift : {
+                auto i1 = *((int64_t*)&stack.top());
+                stack.pop();
+                auto i2 = *((int64_t*)&stack.top());
+                stack.pop();
+                stack.push(i2 >> i1);
+                break;
+            }
+
+            case opcode::i64_ur_shift : {
+                auto i1 = *((uint64_t*)&stack.top());
+                stack.pop();
+                auto i2 = *((uint64_t*)&stack.top());
+                stack.pop();
+                stack.push(i2 >> i1);
+                break;
+            }
+
+            case opcode::i64_and : {
+                auto i1 = *((uint64_t*)&stack.top());
+                stack.pop();
+                auto i2 = *((uint64_t*)&stack.top());
+                stack.pop();
+                stack.push(i2 & i1);
+                break;
+            }
+
+            case opcode::i64_or : {
+                auto i1 = *((uint64_t*)&stack.top());
+                stack.pop();
+                auto i2 = *((uint64_t*)&stack.top());
+                stack.pop();
+                stack.push(i2 | i1);
+                break;
+            }
+
+            case opcode::i64_xor : {
+                auto i1 = *((uint64_t*)&stack.top());
+                stack.pop();
+                auto i2 = *((uint64_t*)&stack.top());
+                stack.pop();
+                stack.push(i2 ^ i1);
                 break;
             }
 
@@ -285,5 +443,5 @@ void CatVM::run(const CodeBlock* code_block) {
         }
     }
 
-    printf("Stack last : %d\n", *((int32_t *)&stack.top()));
+    printf("Stack last : %d\n", *((int32_t*)&stack.top()));
 }
