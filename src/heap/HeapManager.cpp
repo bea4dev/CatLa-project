@@ -34,7 +34,7 @@ void HeapManager:: release(TreeHeapObject* object, size_t runtime_object_id) {
     heap_info_cells[runtime_object_id % cells_size]->release(object, runtime_object_id);
 }
 
-bool HeapManager::collect_and_check_roots_to_release(TreeHeapObject* object, size_t runtime_object_id, vector<HeapObjectIdPair*>* roots_copy) {
+bool HeapManager::collect_and_check_roots_to_release(TreeHeapObject* object, size_t runtime_object_id, unordered_map<size_t, TreeHeapObject*>* roots_copy) {
     return heap_info_cells[runtime_object_id % cells_size]->collect_and_check_roots_to_release(object, runtime_object_id, roots_copy);
 }
 
@@ -111,7 +111,7 @@ bool HeapManagerCell::is_safe_release(TreeHeapObject* object, size_t runtime_obj
         return false;
     }
 
-    if (object->normal_reference_count != 0) {
+    if (object->normal_reference_count != 0 || object->local_thread_reference_count != 0) {
         lock.unlock();
         return false;
     }
@@ -150,7 +150,7 @@ void HeapManagerCell::release(TreeHeapObject* object, size_t runtime_object_id) 
     lock.unlock();
 }
 
-bool HeapManagerCell::collect_and_check_roots_to_release(TreeHeapObject* object, size_t runtime_object_id, vector<HeapObjectIdPair*>* roots_copy) {
+bool HeapManagerCell::collect_and_check_roots_to_release(TreeHeapObject* object, size_t runtime_object_id, unordered_map<size_t, TreeHeapObject*>* roots_copy) {
     size_t index = runtime_object_id / manager->cells_size;
     size_t array_index = index / 8;
     size_t byte_index = index % 8;
@@ -175,17 +175,20 @@ bool HeapManagerCell::collect_and_check_roots_to_release(TreeHeapObject* object,
         return true;
     }
 
-    if (object->normal_reference_count != 0) {
+    if (object->normal_reference_count != 0 || object->local_thread_reference_count != 0) {
         lock.unlock();
         return false;
     }
 
-    object->lock.lock();
-    for (auto it = object->held_roots.begin(); it != object->held_roots.end(); ++it) {
-        HeapObjectIdPair* pair = (*it);
-        roots_copy->push_back(pair->clone());
+    for (auto it = object->local_thread_root_id_map.begin(); it != object->local_thread_root_id_map.end(); ++it) {
+        auto object_pair = *it;
+        (*roots_copy)[object_pair.first] = object_pair.second;
     }
-    object->lock.unlock();
+
+    for (auto it = object->global_root_id_map.begin(); it != object->global_root_id_map.end(); ++it) {
+        auto object_pair = *it;
+        (*roots_copy)[object_pair.first] = object_pair.second;
+    }
 
     lock.unlock();
     return true;
@@ -216,22 +219,24 @@ void HeapManagerCell::try_to_release_fields(TreeHeapObject* object, size_t runti
         return;
     }
 
-    if (object->normal_reference_count != 0) {
+    if (object->normal_reference_count != 0 || object->local_thread_reference_count != 0) {
         lock.unlock();
         return;
     }
 
     for (size_t i = 0; i < object->field_capacity; i++) {
-        HeapObjectIdPair* pair = object->fields[i];
-        if (pair == nullptr) {
+        HeapObject* field_object = object->fields[i];
+        size_t field_object_id = object->field_ids[i];
+
+        if (field_object == nullptr) {
             continue;
         }
 
-        if (pair->runtime_object_id == 0) {
-            HeapObject* primitive_object = pair->object;
+        if (field_object_id == 0) {
+            HeapObject* primitive_object = field_object;
             primitive_object->unsafe_release();
         } else {
-            tree_fields->push_back(pair->clone());
+            tree_fields->push_back(new HeapObjectIdPair(field_object, field_object_id));
         }
     }
 

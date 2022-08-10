@@ -40,7 +40,7 @@ namespace heap {
 
         void release(TreeHeapObject* object, size_t runtime_object_id);
 
-        bool collect_and_check_roots_to_release(TreeHeapObject* object, size_t runtime_object_id, vector<HeapObjectIdPair*>* roots_copy);
+        bool collect_and_check_roots_to_release(TreeHeapObject* object, size_t runtime_object_id, unordered_map<size_t, TreeHeapObject*>* roots_copy);
 
         void try_to_release_fields(TreeHeapObject* object, size_t runtime_object_id, vector<HeapObjectIdPair*>* tree_fields);
 
@@ -65,7 +65,7 @@ namespace heap {
 
         void release(TreeHeapObject* object, size_t runtime_object_id);
 
-        bool collect_and_check_roots_to_release(TreeHeapObject* object, size_t runtime_object_id, vector<HeapObjectIdPair*>* roots_copy);
+        bool collect_and_check_roots_to_release(TreeHeapObject* object, size_t runtime_object_id, unordered_map<size_t, TreeHeapObject*>* roots_copy);
 
         void try_to_release_fields(TreeHeapObject* object, size_t runtime_object_id, vector<HeapObjectIdPair*>* tree_fields);
     };

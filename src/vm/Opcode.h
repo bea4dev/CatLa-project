@@ -10,7 +10,6 @@ namespace cat_vm {
         push_reg,
         heap_new,
         heap_delete,
-        arc_new,
         arc_hold,
         arc_drop,
         suspend,

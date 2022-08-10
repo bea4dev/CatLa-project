@@ -9,7 +9,7 @@
 #include "heap.h"
 
 using namespace std;
-
+using namespace modules;
 
 extern atomic_size_t static_runtime_object_id;
 
@@ -21,7 +21,7 @@ namespace heap {
     class HeapObject {
 
     public:
-
+        size_t runtime_object_id;
         virtual void unsafe_release() = 0;
         
     };
@@ -48,17 +48,7 @@ namespace heap {
     };
 
 
-    class ReferenceCounterObject : public HeapObject {
-    public:
-        size_t runtime_object_id;
-        atomic_size_t normal_reference_count;
 
-        ReferenceCounterObject();
-    };
-
-
-
-    class eapObject;
     class HeapObjectIdPair {
     public:
         HeapObject* object;
@@ -75,30 +65,37 @@ namespace heap {
     };
 
 
-    class TreeHeapObject : public ReferenceCounterObject {
+    class TreeHeapObject : public HeapObject {
 
     public:
+        CatLaClass* class_info;
+        atomic_size_t normal_reference_count;
+        size_t local_thread_reference_count;
+        bool is_arc;
+        size_t local_thread;
         size_t field_capacity;
-        HeapObjectIdPair** fields = nullptr;
+        HeapObject** fields = nullptr;
+        size_t* field_ids = nullptr;
         mutex lock;
-        vector<HeapObjectIdPair*> held_roots;
+        unordered_map<size_t, TreeHeapObject*> local_thread_root_id_map;
+        unordered_map<size_t, TreeHeapObject*> global_root_id_map;
 
 
     public:
-        TreeHeapObject(size_t field_capacity);
+        TreeHeapObject(CatLaClass* class_info, bool is_arc, size_t local_thread, size_t field_capacity);
         ~TreeHeapObject();
 
-        void hold();
+        void hold(size_t thread_id);
 
-        void drop();
+        void drop(size_t thread_id);
 
-        void set_field_object(HeapObject* object, size_t object_id, size_t field_index);
+        void set_field_object(HeapObject* object, size_t object_id, size_t field_index, size_t thread_id);
 
-        HeapObject* get_field_object(size_t field_index);
+        HeapObject* get_field_object(size_t field_index) const;
 
         void unsafe_release() override;
 
-        void add_root_object(TreeHeapObject* root);
+        void add_root_object(TreeHeapObject* root, size_t thread_id);
 
     };
 

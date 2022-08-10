@@ -3,7 +3,6 @@
 #include "heap/HeapManager.h"
 #include <random>
 #include "vm/Opcode.h"
-#include <thread>
 
 CatVM* virtual_machine = nullptr;
 HeapManager* heap_manager = nullptr;
@@ -23,8 +22,8 @@ int random() {
 }
 
 void release(TreeHeapObject* object) {
-    object->hold();
-    object->drop();
+    object->hold(0);
+    object->drop(0);
 }
 
 using namespace std;
@@ -40,8 +39,9 @@ int main()
     for (size_t i = 0; i < 10000; i++) {
         int r = random();
         int objects_count = objects.size();
-        auto* object1 = new TreeHeapObject(3);
-        auto* object2 = new TreeHeapObject(3);
+        CatLaClass* info = nullptr;
+        auto* object1 = new TreeHeapObject(info, true, 0, 3);
+        auto* object2 = new TreeHeapObject(info, true, 0, 3);
         int index = 0;
 
         if (objects_count >= 1) {
@@ -49,24 +49,24 @@ int main()
         }
         TreeHeapObject* random_object;
         if (objects_count == 0) {
-            random_object = new TreeHeapObject(3);
+            random_object = new TreeHeapObject(info, true, 0, 3);
             objects.push_back(random_object);
         } else {
             random_object = objects.at(index);
         }
 
-        random_object->set_field_object(object1, object1->runtime_object_id, 0);
-        random_object->set_field_object(object2, object2->runtime_object_id, 1);
+        random_object->set_field_object(object1, object1->runtime_object_id, 0, 0);
+        random_object->set_field_object(object2, object2->runtime_object_id, 1, 0);
 
         if (r % 8 == 0) {
-            random_object->set_field_object(random_object, random_object->runtime_object_id, 2);
+            random_object->set_field_object(random_object, random_object->runtime_object_id, 2, 0);
         } else if (r % 6 == 0) {
-            random_object->set_field_object(object1, object1->runtime_object_id, 2);
+            random_object->set_field_object(object1, object1->runtime_object_id, 2, 0);
         } else if (r % 2 == 0) {
-            random_object->set_field_object(object2, object2->runtime_object_id, 2);
+            random_object->set_field_object(object2, object2->runtime_object_id, 2, 0);
         } else {
-            object1->set_field_object(random_object, random_object->runtime_object_id, 2);
-            object2->set_field_object(random_object, random_object->runtime_object_id, 2);
+            object1->set_field_object(random_object, random_object->runtime_object_id, 2, 0);
+            object2->set_field_object(random_object, random_object->runtime_object_id, 2, 0);
         }
 
         auto remove_element = objects.begin() + index;

@@ -16,65 +16,72 @@ size_t heap::new_runtime_object_id() {
 
 
 
-ReferenceCounterObject::ReferenceCounterObject() {
-    this->runtime_object_id = heap::new_runtime_object_id();
-}
-
-
-TreeHeapObject::TreeHeapObject(size_t field_capacity) {
+TreeHeapObject::TreeHeapObject(CatLaClass* class_info, bool is_arc, size_t local_thread, size_t field_capacity) {
+    this->class_info = class_info;
+    this->is_arc = is_arc;
+    this->local_thread_reference_count = 0;
+    this->local_thread = local_thread;
     this->field_capacity = field_capacity;
-    this->fields = new HeapObjectIdPair*[field_capacity];
+    this->fields = new HeapObject*[field_capacity];
+    this->field_ids = new size_t[field_capacity];
+
+    if (is_arc) {
+        this->runtime_object_id = heap::new_runtime_object_id();
+    } else {
+        this->runtime_object_id = 0;
+    }
 
     for (size_t i = 0; i < field_capacity; i++) {
         this->fields[i] = nullptr;
+        this->field_ids[i] = 0;
     }
 }
 
 TreeHeapObject::~TreeHeapObject() {
-    for (size_t i = 0; i < field_capacity; i++) {
-        delete fields[i];
-    }
-    for (auto it = held_roots.begin(); it != held_roots.end(); ++it) {
-        HeapObjectIdPair* pair = (*it);
-        delete pair;
-    }
     delete[] fields;
+    delete[] field_ids;
 }
 
-void TreeHeapObject::hold() {
-    printf("HOLD : %zu\n", runtime_object_id);
-    normal_reference_count.fetch_add(1);
-}
-
-void TreeHeapObject::drop() {
-    printf("DROP : %zu\n", runtime_object_id);
-    size_t object_id = runtime_object_id;
-    size_t before = normal_reference_count.fetch_sub(1);
-
-    if (before == 1) {
-        heap::safe_release(this, object_id);
+void TreeHeapObject::hold(size_t thread_id) {
+    if (is_arc) {
+        printf("HOLD : %zu\n", runtime_object_id);
+        if (thread_id == local_thread) {
+            local_thread_reference_count += 1;
+        } else {
+            normal_reference_count.fetch_add(1);
+        }
     }
 }
 
-void TreeHeapObject::set_field_object(HeapObject* object, size_t object_id, size_t field_index) {
-    lock.lock();
-    HeapObjectIdPair* pair = fields[field_index];
-    delete pair;
+void TreeHeapObject::drop(size_t thread_id) {
+    if (is_arc) {
+        printf("DROP : %zu\n", runtime_object_id);
+        size_t object_id = runtime_object_id;
+        size_t before;
+        if (thread_id == local_thread) {
+            before = local_thread_reference_count--;
+        } else {
+            before = normal_reference_count.fetch_sub(1);
+        }
 
-    fields[field_index] = new HeapObjectIdPair(object, object_id);
-    lock.unlock();
+        if (before == 1) {
+            heap::safe_release(this, object_id);
+        }
+    }
+}
+
+void TreeHeapObject::set_field_object(HeapObject* object, size_t object_id, size_t field_index, size_t thread_id) {
+    fields[field_index] = object;
+    field_ids[field_index] = object_id;
 
     if (object_id != 0) {
-        auto* tree_object = (TreeHeapObject*) object;
-        tree_object->add_root_object(this);
+        auto *tree_object = (TreeHeapObject*) object;
+        tree_object->add_root_object(this, thread_id);
     }
 }
 
-HeapObject* TreeHeapObject::get_field_object(size_t field_index) {
-    lock.lock();
-    HeapObject* object = fields[field_index]->object;
-    lock.unlock();
-    return object;
+HeapObject* TreeHeapObject::get_field_object(size_t field_index) const {
+    return fields[field_index];
 }
 
 void TreeHeapObject::unsafe_release() {
@@ -83,13 +90,15 @@ void TreeHeapObject::unsafe_release() {
 }
 
 
-void TreeHeapObject::add_root_object(TreeHeapObject* root) {
-    lock.lock();
-    held_roots.push_back(new HeapObjectIdPair(root, root->runtime_object_id));
-    lock.unlock();
+void TreeHeapObject::add_root_object(TreeHeapObject* root, size_t thread_id) {
+    if (local_thread == thread_id) {
+        local_thread_root_id_map[root->runtime_object_id] = root;
+    } else {
+        lock.lock();
+        global_root_id_map[root->runtime_object_id] = root;
+        lock.unlock();
+    }
 }
-
-
 
 
 bool heap::collect_and_check_to_release(TreeHeapObject* object, size_t object_id, unordered_map<size_t, TreeHeapObject*>* roots_map) {
@@ -99,17 +108,16 @@ bool heap::collect_and_check_to_release(TreeHeapObject* object, size_t object_id
     TreeHeapObject* current_object = object;
     size_t current_object_id = object_id;
     while (true) {
-        vector<HeapObjectIdPair*> held_copy;
+        unordered_map<size_t, TreeHeapObject*> held_copy;
         bool safe = heap_manager->collect_and_check_roots_to_release(current_object, current_object_id, &held_copy);
         if (!safe) {
             return false;
         }
         (*roots_map)[current_object_id] = current_object;
 
-
         for (auto it = held_copy.begin(); it != held_copy.end(); ++it) {
-            HeapObjectIdPair* pair = (*it);
-            size_t root_object_id = pair->runtime_object_id;
+            auto object_pair = *it;
+            size_t root_object_id = object_pair.first;
 
             if (roots_map->count(root_object_id) != 0) {
                 continue;
@@ -118,10 +126,8 @@ bool heap::collect_and_check_to_release(TreeHeapObject* object, size_t object_id
                 continue;
             }
 
-            auto* root_object = (TreeHeapObject*) pair->object;
+            auto* root_object = object_pair.second;
             reserved_object_map[root_object_id] = root_object;
-
-            delete pair;
         }
 
 

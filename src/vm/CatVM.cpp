@@ -45,6 +45,7 @@ void CatVM::run(const CodeBlock* code_block) {
     printf("\n\n");
 
     stack<uint64_t> stack;
+    vector<uint64_t> reg;
     for (size_t i = 0; i < byte_code_length; i++) {
         uint8_t opcode = byte_code[i];
 
@@ -65,12 +66,27 @@ void CatVM::run(const CodeBlock* code_block) {
             }
 
             case opcode::set_reg : {
-                //TODO
+                size_t index = byte_code[i + 1] << 8;
+                index |= byte_code[i + 2];
+
+                size_t reg_length = reg.size();
+                if (reg_length <= index) {
+                    for (size_t ri = 0; ri < reg_length - index + 1; ri++) {
+                        reg.push_back(0);
+                    }
+                }
+
+                reg[index] = stack.top();
+                stack.pop();
+                i += 2;
                 break;
             }
 
             case opcode::push_reg : {
-                //TODO
+                size_t index = byte_code[i + 1] << 8;
+                index |= byte_code[i + 2];
+                stack.push(reg[index]);
+                i += 2;
                 break;
             }
 
@@ -80,11 +96,6 @@ void CatVM::run(const CodeBlock* code_block) {
             }
 
             case opcode::heap_delete : {
-                //TODO
-                break;
-            }
-
-            case opcode::arc_new : {
                 //TODO
                 break;
             }
