@@ -14,6 +14,7 @@ using namespace modules;
 namespace cat_vm {
 
     extern atomic_size_t thread_ids;
+    extern size_t reserved_threads;
 
     class VM_Thread {
     private:

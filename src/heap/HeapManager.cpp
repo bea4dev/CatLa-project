@@ -1,9 +1,7 @@
 #include <iterator>
-#include <mutex>
 #include <typeinfo>
-#include "HeapManager.h"
-#include "heap.h"
-#include "../CatLa.h"
+#include "heap/HeapManager.h"
+#include "heap/HeapObject.h"
 
 using namespace heap;
 using namespace cat_vm;
@@ -180,15 +178,15 @@ bool HeapManagerCell::collect_and_check_roots_to_release(TreeHeapObject* object,
         return false;
     }
 
-    for (auto it = object->local_thread_root_id_map.begin(); it != object->local_thread_root_id_map.end(); ++it) {
-        auto object_pair = *it;
-        (*roots_copy)[object_pair.first] = object_pair.second;
-    }
 
-    for (auto it = object->global_root_id_map.begin(); it != object->global_root_id_map.end(); ++it) {
+    object->lock.lock();
+    auto roots_map = object->roots_map;
+
+    for (auto it = roots_map.begin(); it != roots_map.end(); ++it) {
         auto object_pair = *it;
         (*roots_copy)[object_pair.first] = object_pair.second;
     }
+    object->lock.unlock();
 
     lock.unlock();
     return true;

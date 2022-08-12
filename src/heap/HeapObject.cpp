@@ -15,6 +15,8 @@ size_t heap::new_runtime_object_id() {
 }
 
 
+using namespace concurrent;
+using namespace cat_vm;
 
 TreeHeapObject::TreeHeapObject(CatLaClass* class_info, bool is_arc, size_t local_thread, size_t field_capacity) {
     this->class_info = class_info;
@@ -60,23 +62,25 @@ void TreeHeapObject::drop(size_t thread_id) {
         size_t before;
         if (thread_id == local_thread) {
             before = local_thread_reference_count--;
+            if (before == 1 && normal_reference_count == 0) {
+                heap::safe_release(this, object_id);
+            }
         } else {
             before = normal_reference_count.fetch_sub(1);
-        }
-
-        if (before == 1) {
-            heap::safe_release(this, object_id);
+            if (before == 1 && local_thread_reference_count == 0) {
+                heap::safe_release(this, object_id);
+            }
         }
     }
 }
 
-void TreeHeapObject::set_field_object(HeapObject* object, size_t object_id, size_t field_index, size_t thread_id) {
+void TreeHeapObject::set_field_object(HeapObject* object, size_t object_id, size_t field_index) {
     fields[field_index] = object;
     field_ids[field_index] = object_id;
 
     if (object_id != 0) {
         auto *tree_object = (TreeHeapObject*) object;
-        tree_object->add_root_object(this, thread_id);
+        tree_object->add_root_object(this);
     }
 }
 
@@ -90,12 +94,18 @@ void TreeHeapObject::unsafe_release() {
 }
 
 
-void TreeHeapObject::add_root_object(TreeHeapObject* root, size_t thread_id) {
-    if (local_thread == thread_id) {
-        local_thread_root_id_map[root->runtime_object_id] = root;
-    } else {
+void TreeHeapObject::add_root_object(TreeHeapObject* root, size_t object_id) {
+    if (is_arc) {
         lock.lock();
-        global_root_id_map[root->runtime_object_id] = root;
+        roots_map[object_id] = root;
+        lock.unlock();
+    }
+}
+
+void TreeHeapObject::remove_root_object(size_t object_id) {
+    if (is_arc) {
+        lock.lock();
+        roots_map.erase(object_id);
         lock.unlock();
     }
 }

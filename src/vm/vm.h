@@ -1,4 +1,4 @@
 #pragma once
 
-#include "modules/CatLaFunction.h"
-#include "modules/CatLaClass.h"
+#include "vm/modules/CatLaFunction.h"
+#include "vm/modules/CatLaClass.h"

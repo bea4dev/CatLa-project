@@ -3,6 +3,7 @@
 #include "heap/HeapManager.h"
 #include <random>
 #include "vm/Opcode.h"
+#include <thread>
 
 CatVM* virtual_machine = nullptr;
 HeapManager* heap_manager = nullptr;
@@ -11,6 +12,7 @@ void setup_virtual_machine() {
     static_runtime_object_id.fetch_add(1);
     virtual_machine = new CatVM();
     heap_manager = new heap::HeapManager((size_t) 8);
+    reserved_threads = (size_t) thread::hardware_concurrency();
 }
 
 

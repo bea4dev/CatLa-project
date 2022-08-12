@@ -1,2 +1,2 @@
-#include "../vm.h"
-#include "../../heap/HeapObject.h"
+#include "vm/vm.h"
+#include "heap/HeapObject.h"

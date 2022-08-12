@@ -6,6 +6,7 @@ using namespace cat_vm;
 
 namespace cat_vm {
     atomic_size_t thread_ids;
+    size_t reserved_threads = 1;
 }
 
 VM_Thread::VM_Thread() {

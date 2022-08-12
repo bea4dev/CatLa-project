@@ -4,13 +4,13 @@
 #include <mutex>
 #include "heap.h"
 #include "HeapObject.h"
+#include <util/Concurrent.h>
 
 namespace cat_vm {
     class CatVM;
 }
 
 namespace heap {
-    class ReferenceCounterObject;
     class TreeHeapObject;
     class HeapObjectIdPair;
 }
@@ -33,7 +33,7 @@ namespace heap {
         CatVM* vm;
         size_t cells_size;
 
-        HeapManager(size_t cells);
+        explicit HeapManager(size_t cells);
         ~HeapManager();
         
         bool is_released(size_t runtime_object_id);
@@ -57,7 +57,7 @@ namespace heap {
         mutex lock;
     
     public:
-        HeapManagerCell(HeapManager* manager);
+        explicit HeapManagerCell(HeapManager* manager);
 
         bool is_released(size_t runtime_object_id);
 

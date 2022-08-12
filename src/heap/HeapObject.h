@@ -6,10 +6,12 @@
 #include <mutex>
 #include <vector>
 #include <unordered_map>
+#include <util/Concurrent.h>
 #include "heap.h"
 
 using namespace std;
 using namespace modules;
+using namespace concurrent;
 
 extern atomic_size_t static_runtime_object_id;
 
@@ -76,9 +78,8 @@ namespace heap {
         size_t field_capacity;
         HeapObject** fields = nullptr;
         size_t* field_ids = nullptr;
-        mutex lock;
-        unordered_map<size_t, TreeHeapObject*> local_thread_root_id_map;
-        unordered_map<size_t, TreeHeapObject*> global_root_id_map;
+        SpinLock lock;
+        unordered_map<size_t, TreeHeapObject*> roots_map;
 
 
     public:
@@ -89,13 +90,15 @@ namespace heap {
 
         void drop(size_t thread_id);
 
-        void set_field_object(HeapObject* object, size_t object_id, size_t field_index, size_t thread_id);
+        void set_field_object(HeapObject* object, size_t object_id, size_t field_index);
 
         HeapObject* get_field_object(size_t field_index) const;
 
         void unsafe_release() override;
 
-        void add_root_object(TreeHeapObject* root, size_t thread_id);
+        void add_root_object(TreeHeapObject* root, size_t object_id);
+
+        void remove_root_object(size_t object_id);
 
     };
 
