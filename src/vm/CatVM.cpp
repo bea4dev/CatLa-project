@@ -1,8 +1,11 @@
 #include "CatVM.h"
 #include "Opcode.h"
 #include <stack>
+#include <heap/HeapObject.h>
+#include <heap/HeapManager.h>
 
 using namespace cat_vm;
+using namespace heap;
 
 namespace cat_vm {
     atomic_size_t thread_ids;
@@ -23,6 +26,7 @@ void CatVM::run(const CodeBlock* code_block) {
     auto* current_thread = new VM_Thread();
     this->threads.push_back(current_thread);
     this->threads_manage_lock.unlock();
+    size_t thread_id = current_thread->thread_id;
 
     vector<uint8_t> byte_code = *code_block->byte_code;
     vector<uint64_t> const_values = *code_block->const_values;
@@ -58,17 +62,16 @@ void CatVM::run(const CodeBlock* code_block) {
             }
 
             case opcode::push_const : {
-                size_t index = byte_code[i + 1] << 8;
-                index |= byte_code[i + 2];
+                size_t index = ((size_t) byte_code[++i]) << 8;
+                index |= ((size_t) byte_code[++i]);
                 uint64_t value = const_values[index];
                 stack.push(value);
-                i += 2;
                 break;
             }
 
             case opcode::set_reg : {
-                size_t index = byte_code[i + 1] << 8;
-                index |= byte_code[i + 2];
+                size_t index = ((size_t) byte_code[++i]) << 8;
+                index |= ((size_t) byte_code[++i]);
 
                 size_t reg_length = reg.size();
                 if (reg_length <= index) {
@@ -79,35 +82,42 @@ void CatVM::run(const CodeBlock* code_block) {
 
                 reg[index] = stack.top();
                 stack.pop();
-                i += 2;
                 break;
             }
 
             case opcode::push_reg : {
-                size_t index = byte_code[i + 1] << 8;
-                index |= byte_code[i + 2];
+                size_t index = ((size_t) byte_code[++i]) << 8;
+                index |= ((size_t) byte_code[++i]);
                 stack.push(reg[index]);
-                i += 2;
                 break;
             }
 
             case opcode::heap_new : {
-                //TODO
+                auto* class_info = (CatLaClass*) stack.top();
+                stack.pop();
+                uint8_t option = byte_code[++i];
+                bool is_arc = (option & 1) != 0;
+                auto* object = new TreeHeapObject(class_info, is_arc, thread_id, class_info->number_of_fields);
+                stack.push((size_t) object);
                 break;
             }
 
             case opcode::heap_delete : {
-                //TODO
+                auto* object = (TreeHeapObject*) stack.top();
+                stack.pop();
+                object->unsafe_release();
                 break;
             }
 
             case opcode::arc_hold : {
-                //TODO
+                auto* object = (TreeHeapObject*) stack.top();
+                object->hold(thread_id);
                 break;
             }
 
             case opcode::arc_drop : {
-                //TODO
+                auto* object = (TreeHeapObject*) stack.top();
+                object->drop(thread_id);
                 break;
             }
 
@@ -117,7 +127,30 @@ void CatVM::run(const CodeBlock* code_block) {
             }
 
             case opcode::get_object_field : {
-                //TODO
+                size_t index = stack.top();
+                stack.pop();
+                auto* object = (TreeHeapObject*) stack.top();
+                stack.pop();
+                size_t field_capacity = object->field_capacity;
+                if (index >= field_capacity) {
+                    throw "Out of capacity.";
+                }
+                stack.push((size_t) object->get_field_object(index));
+                break;
+            }
+
+            case opcode::set_object_field : {
+                size_t index = stack.top();
+                stack.pop();
+                auto* field_object = (HeapObject*) stack.top();
+                stack.pop();
+                auto* object = (TreeHeapObject*) stack.top();
+                stack.pop();
+                size_t field_capacity = object->field_capacity;
+                if (index >= field_capacity) {
+                    throw "Out of capacity.";
+                }
+                object->set_field_object(field_object, field_object->runtime_object_id, index);
                 break;
             }
 

@@ -14,6 +14,7 @@ namespace cat_vm {
         arc_drop,
         suspend,
         get_object_field,
+        set_object_field,
         get_module_field,
         i8_add,
         i8_sub,

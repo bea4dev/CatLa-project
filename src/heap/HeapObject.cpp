@@ -80,7 +80,7 @@ void TreeHeapObject::set_field_object(HeapObject* object, size_t object_id, size
 
     if (object_id != 0) {
         auto *tree_object = (TreeHeapObject*) object;
-        tree_object->add_root_object(this);
+        tree_object->add_root_object(this, tree_object->runtime_object_id);
     }
 }
 

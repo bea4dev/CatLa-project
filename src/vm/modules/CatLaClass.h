@@ -10,9 +10,9 @@ namespace modules {
     public:
         std::string class_name;
         uint32_t runtime_class_id;
-        uint32_t number_of_fields;
+        size_t number_of_fields;
 
-        CatLaClass(std::string class_name, uint32_t runtime_class_id, uint32_t number_of_fields);
+        CatLaClass(std::string class_name, uint32_t runtime_class_id, size_t number_of_fields);
 
     };
 

@@ -17,12 +17,12 @@ namespace cat_vm {
     extern size_t reserved_threads;
 
     class VM_Thread {
-    private:
-        size_t thread_id;
 
     public:
         VM_Thread();
         ~VM_Thread();
+
+        size_t thread_id;
     };
 
 
