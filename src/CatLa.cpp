@@ -5,12 +5,12 @@
 #include "vm/Opcode.h"
 #include <thread>
 
-CatVM* virtual_machine = nullptr;
+NyanVM* virtual_machine = nullptr;
 HeapManager* heap_manager = nullptr;
 
 void setup_virtual_machine() {
     static_runtime_object_id.fetch_add(1);
-    virtual_machine = new CatVM();
+    virtual_machine = new NyanVM();
     heap_manager = new heap::HeapManager((size_t) 8);
     reserved_threads = (size_t) thread::hardware_concurrency();
 }
@@ -61,7 +61,8 @@ int main()
     byte_code->push_back(opcode::i32_sub);
 
     auto* code_block = new CodeBlock(byte_code, const_values, 20);
-    virtual_machine->run(code_block);
+    auto* thread = new VMThread();
+    NyanVM::run(thread, thread->thread_id, code_block);
 
     std::cout << "Complete!\n";
 }

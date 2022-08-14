@@ -4,7 +4,7 @@
 #include "heap/HeapObject.h"
 
 using namespace heap;
-using namespace cat_vm;
+using namespace nyan;
 using namespace std;
 
 HeapManager::HeapManager(size_t cells) {

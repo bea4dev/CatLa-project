@@ -1,13 +1,13 @@
 #pragma once
 
-#include <vm/CatVM.h>
+#include <vm/NyanVM.h>
 #include <unordered_map>
 #include <mutex>
 #include <atomic>
 #include <thread>
 
 using namespace std;
-using namespace cat_vm;
+using namespace nyan;
 
 namespace concurrent {
 

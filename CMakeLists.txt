@@ -21,7 +21,7 @@ add_executable(catla
         src/vm/modules/CodeBlock.cpp
         src/vm/modules/CatLaModule.cpp
         src/vm/modules/CatLaFunction.cpp
-        src/vm/CatVM.cpp
+        src/vm/NyanVM.cpp
         src/util/Concurrent.h)
 
 llvm_map_components_to_libnames(llvm_libs

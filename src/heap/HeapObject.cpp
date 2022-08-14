@@ -16,7 +16,7 @@ size_t heap::new_runtime_object_id() {
 
 
 using namespace concurrent;
-using namespace cat_vm;
+using namespace nyan;
 
 TreeHeapObject::TreeHeapObject(CatLaClass* class_info, bool is_arc, size_t local_thread, size_t field_capacity) {
     this->class_info = class_info;

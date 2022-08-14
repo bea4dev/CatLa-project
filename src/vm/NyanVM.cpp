@@ -1,38 +1,30 @@
-#include "CatVM.h"
+#include "NyanVM.h"
 #include "Opcode.h"
 #include <stack>
 #include <heap/HeapObject.h>
 #include <heap/HeapManager.h>
 
-using namespace cat_vm;
+using namespace nyan;
 using namespace heap;
 
-namespace cat_vm {
+namespace nyan {
     atomic_size_t thread_ids;
     size_t reserved_threads = 1;
 }
 
-VM_Thread::VM_Thread() {
+VMThread::VMThread() {
     this->thread_id = thread_ids.fetch_add(1);
 }
 
-VM_Thread::~VM_Thread() = default;
+VMThread::~VMThread() = default;
 
 
-CatVM::CatVM() = default;
+NyanVM::NyanVM() = default;
 
-void CatVM::run(CodeBlock *code_block) {
-    this->threads_manage_lock.lock();
-    auto* current_thread = new VM_Thread();
-    this->threads.push_back(current_thread);
-    this->threads_manage_lock.unlock();
-    size_t thread_id = current_thread->thread_id;
-
-    CodeBlock* current_code_block = code_block;
+void NyanVM::run(VMThread* vm_thread, size_t thread_id, CodeBlock *code_block) {
     vector<uint8_t> byte_code = *code_block->byte_code;
     vector<uint64_t> const_values = *code_block->const_values;
     size_t byte_code_length = byte_code.size();
-
 
     printf("\nConst value :\n");
     for (auto it = const_values.begin(); it != const_values.end(); ++it) {

@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace cat_vm {
+namespace nyan {
     enum opcode : uint8_t {
         set_info,
         push_const,

@@ -11,30 +11,30 @@ using namespace heap;
 using namespace std;
 using namespace modules;
 
-namespace cat_vm {
+namespace nyan {
 
     extern atomic_size_t thread_ids;
     extern size_t reserved_threads;
 
-    class VM_Thread {
+    class VMThread {
 
     public:
-        VM_Thread();
-        ~VM_Thread();
+        VMThread();
+        ~VMThread();
 
         size_t thread_id;
     };
 
 
-    class CatVM {
+    class NyanVM {
 
     private:
         mutex threads_manage_lock;
-        vector<VM_Thread*> threads;
+        vector<VMThread*> threads;
 
     public:
-        CatVM();
+        NyanVM();
 
-        void run(CodeBlock *code_block);
+        static void run(VMThread* vm_thread, size_t thread_id, CodeBlock *code_block);
     };
 }

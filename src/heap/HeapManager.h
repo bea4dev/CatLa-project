@@ -6,8 +6,8 @@
 #include "HeapObject.h"
 #include <util/Concurrent.h>
 
-namespace cat_vm {
-    class CatVM;
+namespace nyan {
+    class NyanVM;
 }
 
 namespace heap {
@@ -16,7 +16,7 @@ namespace heap {
 }
 
 using namespace std;
-using namespace cat_vm;
+using namespace nyan;
 
 namespace heap {
     
@@ -30,7 +30,7 @@ namespace heap {
         HeapManagerCell** heap_info_cells;
 
     public:
-        CatVM* vm;
+        NyanVM* vm;
         size_t cells_size;
 
         explicit HeapManager(size_t cells);
