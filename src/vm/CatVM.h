@@ -35,6 +35,6 @@ namespace cat_vm {
     public:
         CatVM();
 
-        void run(const CodeBlock* code_block);
+        void run(CodeBlock *code_block);
     };
 }

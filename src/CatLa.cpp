@@ -60,7 +60,7 @@ int main()
     byte_code->push_back(0x03);
     byte_code->push_back(opcode::i32_sub);
 
-    auto* code_block = new CodeBlock(byte_code, const_values);
+    auto* code_block = new CodeBlock(byte_code, const_values, 20);
     virtual_machine->run(code_block);
 
     std::cout << "Complete!\n";

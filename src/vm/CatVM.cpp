@@ -21,13 +21,14 @@ VM_Thread::~VM_Thread() = default;
 
 CatVM::CatVM() = default;
 
-void CatVM::run(const CodeBlock* code_block) {
+void CatVM::run(CodeBlock *code_block) {
     this->threads_manage_lock.lock();
     auto* current_thread = new VM_Thread();
     this->threads.push_back(current_thread);
     this->threads_manage_lock.unlock();
     size_t thread_id = current_thread->thread_id;
 
+    CodeBlock* current_code_block = code_block;
     vector<uint8_t> byte_code = *code_block->byte_code;
     vector<uint64_t> const_values = *code_block->const_values;
     size_t byte_code_length = byte_code.size();
@@ -50,7 +51,7 @@ void CatVM::run(const CodeBlock* code_block) {
     printf("\n\n");
 
     stack<uint64_t> stack;
-    vector<uint64_t> reg;
+    auto* reg = new uint64_t[code_block->reg_size];
     for (size_t i = 0; i < byte_code_length; i++) {
         uint8_t opcode = byte_code[i];
 
@@ -72,14 +73,6 @@ void CatVM::run(const CodeBlock* code_block) {
             case opcode::set_reg : {
                 size_t index = ((size_t) byte_code[++i]) << 8;
                 index |= ((size_t) byte_code[++i]);
-
-                size_t reg_length = reg.size();
-                if (reg_length <= index) {
-                    for (size_t ri = 0; ri < reg_length - index + 1; ri++) {
-                        reg.push_back(0);
-                    }
-                }
-
                 reg[index] = stack.top();
                 stack.pop();
                 break;
