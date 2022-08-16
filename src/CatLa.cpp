@@ -4,6 +4,8 @@
 #include <random>
 #include "vm/Opcode.h"
 #include <thread>
+#include <vm/stack/stack.h>
+#include <pthread.h>
 
 NyanVM* virtual_machine = nullptr;
 HeapManager* heap_manager = nullptr;
@@ -29,6 +31,42 @@ void release(TreeHeapObject* object) {
 }
 
 using namespace std;
+
+uint64_t i = 0;
+size_t top_of_stack;
+size_t stack_size;
+
+class StackOverflow {
+public:
+    StackOverflow() = default;
+};
+
+void detect_stack_overflow() {
+    uint8_t a = 0;
+    auto current_stack_address = (size_t) &a;
+    if (stack_size - (top_of_stack - current_stack_address) <= 2000) {
+        throw StackOverflow();
+    }
+}
+
+void func() {
+    detect_stack_overflow();
+    i++;
+    func();
+}
+
+void* start(void* arg) {
+    uint8_t a = 0;
+    top_of_stack = (size_t) &a;
+
+    try {
+        func();
+    } catch (StackOverflow& exception) {
+        printf("Stack overflow!! : %llu\n", i);
+    }
+
+    return nullptr;
+}
 
 int main()
 {
@@ -63,6 +101,16 @@ int main()
     auto* code_block = new CodeBlock(byte_code, const_values, 20);
     auto* thread = new VMThread();
     NyanVM::run(thread, thread->thread_id, code_block);
+
+    pthread_attr_t thread_attribute;
+    pthread_t pthread1;
+    stack_size = PTHREAD_STACK_MIN + 0x8000;
+
+    pthread_attr_init(&thread_attribute);
+    pthread_attr_setstacksize(&thread_attribute, stack_size);
+    pthread_create(&pthread1, &thread_attribute, start, nullptr);
+    pthread_join(pthread1, nullptr);
+
 
     std::cout << "Complete!\n";
 }

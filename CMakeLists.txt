@@ -22,7 +22,8 @@ add_executable(catla
         src/vm/modules/CatLaModule.cpp
         src/vm/modules/CatLaFunction.cpp
         src/vm/NyanVM.cpp
-        src/util/Concurrent.h)
+        src/util/Concurrent.h
+        src/vm/stack/stack.cpp)
 
 llvm_map_components_to_libnames(llvm_libs
         Core
@@ -34,3 +35,7 @@ llvm_map_components_to_libnames(llvm_libs
         nativecodegen)
 
 target_link_libraries(catla ${llvm_libs})
+
+if(WIN32)
+    target_link_libraries(catla libpthreadGC2 libpthreadGCE2)
+endif()

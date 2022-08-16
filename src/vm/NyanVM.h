@@ -19,10 +19,13 @@ namespace nyan {
     class VMThread {
 
     public:
-        VMThread();
-        ~VMThread();
-
         size_t thread_id;
+        size_t stack_size;
+        size_t top_of_stack_address;
+
+    public:
+        explicit VMThread(size_t stack_size);
+        ~VMThread();
     };
 
 

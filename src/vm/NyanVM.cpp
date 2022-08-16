@@ -12,8 +12,11 @@ namespace nyan {
     size_t reserved_threads = 1;
 }
 
-VMThread::VMThread() {
+VMThread::VMThread(size_t stack_size) {
     this->thread_id = thread_ids.fetch_add(1);
+    this->stack_size = stack_size;
+    uint8_t a = 0;
+    this->top_of_stack_address = (size_t) &a;
 }
 
 VMThread::~VMThread() = default;
