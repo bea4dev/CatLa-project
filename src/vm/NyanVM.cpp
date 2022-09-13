@@ -1,8 +1,6 @@
 #include "NyanVM.h"
 #include "Opcode.h"
 #include <stack>
-#include <heap/HeapObject.h>
-#include <heap/HeapManager.h>
 
 using namespace nyan;
 using namespace heap;
@@ -85,27 +83,27 @@ void NyanVM::run(VMThread* vm_thread, size_t thread_id, CodeBlock *code_block) {
                 stack.pop();
                 uint8_t option = byte_code[++i];
                 bool is_arc = (option & 1) != 0;
-                auto* object = new TreeHeapObject(class_info, is_arc, thread_id, class_info->number_of_fields);
-                stack.push((size_t) object);
+                //auto* object = new TreeHeapObject(class_info, is_arc, thread_id, class_info->number_of_fields);
+                //stack.push((size_t) object);
                 break;
             }
 
             case opcode::heap_delete : {
-                auto* object = (TreeHeapObject*) stack.top();
+                //auto* object = (TreeHeapObject*) stack.top();
                 stack.pop();
-                object->unsafe_release();
+                //object->unsafe_release();
                 break;
             }
 
             case opcode::arc_hold : {
-                auto* object = (TreeHeapObject*) stack.top();
-                object->hold(thread_id);
+                //auto* object = (TreeHeapObject*) stack.top();
+                //object->hold(thread_id);
                 break;
             }
 
             case opcode::arc_drop : {
-                auto* object = (TreeHeapObject*) stack.top();
-                object->drop(thread_id);
+                //auto* object = (TreeHeapObject*) stack.top();
+                //object->drop(thread_id);
                 break;
             }
 
@@ -114,7 +112,7 @@ void NyanVM::run(VMThread* vm_thread, size_t thread_id, CodeBlock *code_block) {
                 break;
             }
 
-            case opcode::get_object_field : {
+            case opcode::get_object_field : {/*
                 size_t index = stack.top();
                 stack.pop();
                 auto* object = (TreeHeapObject*) stack.top();
@@ -123,11 +121,11 @@ void NyanVM::run(VMThread* vm_thread, size_t thread_id, CodeBlock *code_block) {
                 if (index >= field_capacity) {
                     throw "Out of capacity.";
                 }
-                stack.push((size_t) object->get_field_object(index));
+                stack.push((size_t) object->get_field_object(index));*/
                 break;
             }
 
-            case opcode::set_object_field : {
+            case opcode::set_object_field : {/*
                 size_t index = stack.top();
                 stack.pop();
                 auto* field_object = (HeapObject*) stack.top();
@@ -138,7 +136,7 @@ void NyanVM::run(VMThread* vm_thread, size_t thread_id, CodeBlock *code_block) {
                 if (index >= field_capacity) {
                     throw "Out of capacity.";
                 }
-                object->set_field_object(field_object, field_object->runtime_object_id, index);
+                object->set_field_object(field_object, field_object->runtime_object_id, index);*/
                 break;
             }
 
@@ -148,90 +146,182 @@ void NyanVM::run(VMThread* vm_thread, size_t thread_id, CodeBlock *code_block) {
             }
 
             case opcode::i8_add : {
+                auto i1 = *((int8_t*)&stack.top());
+                stack.pop();
+                auto i2 = *((int8_t*)&stack.top());
+                stack.pop();
+                stack.push(i2 + i1);
                 break;
             }
 
             case opcode::i8_sub : {
+                auto i1 = *((int8_t*)&stack.top());
+                stack.pop();
+                auto i2 = *((int8_t*)&stack.top());
+                stack.pop();
+                stack.push(i2 - i1);
                 break;
             }
 
             case opcode::i8_mul : {
+                auto i1 = *((int8_t*)&stack.top());
+                stack.pop();
+                auto i2 = *((int8_t*)&stack.top());
+                stack.pop();
+                stack.push(i2 * i1);
                 break;
             }
 
             case opcode::i8_div : {
+                auto i1 = *((int8_t*)&stack.top());
+                stack.pop();
+                auto i2 = *((int8_t*)&stack.top());
+                stack.pop();
+                stack.push(i2 / i1);
                 break;
             }
 
             case opcode::i8_rem : {
+                auto i1 = *((int8_t*)&stack.top());
+                stack.pop();
+                auto i2 = *((int8_t*)&stack.top());
+                stack.pop();
+                stack.push(i2 % i1);
                 break;
             }
 
             case opcode::i8_l_shift : {
+                auto i1 = *((int8_t*)&stack.top());
+                stack.pop();
+                auto i2 = *((int8_t*)&stack.top());
+                stack.pop();
+                stack.push(i2 << i1);
                 break;
             }
 
             case opcode::i8_r_shift : {
-                break;
-            }
-
-            case opcode::i8_ur_shift : {
+                auto i1 = *((int8_t*)&stack.top());
+                stack.pop();
+                auto i2 = *((int8_t*)&stack.top());
+                stack.pop();
+                stack.push(i2 >> i1);
                 break;
             }
 
             case opcode::i8_and : {
+                auto i1 = *((uint8_t*)&stack.top());
+                stack.pop();
+                auto i2 = *((uint8_t*)&stack.top());
+                stack.pop();
+                stack.push(i2 & i1);
                 break;
             }
 
             case opcode::i8_or : {
+                auto i1 = *((uint8_t*)&stack.top());
+                stack.pop();
+                auto i2 = *((uint8_t*)&stack.top());
+                stack.pop();
+                stack.push(i2 | i1);
                 break;
             }
 
             case opcode::i8_xor : {
+                auto i1 = *((uint8_t*)&stack.top());
+                stack.pop();
+                auto i2 = *((uint8_t*)&stack.top());
+                stack.pop();
+                stack.push(i2 ^ i1);
                 break;
             }
 
             case opcode::i16_add : {
+                auto i1 = *((int16_t*)&stack.top());
+                stack.pop();
+                auto i2 = *((int16_t*)&stack.top());
+                stack.pop();
+                stack.push(i2 + i1);
                 break;
             }
 
             case opcode::i16_sub : {
+                auto i1 = *((int16_t*)&stack.top());
+                stack.pop();
+                auto i2 = *((int16_t*)&stack.top());
+                stack.pop();
+                stack.push(i2 - i1);
                 break;
             }
 
             case opcode::i16_mul : {
+                auto i1 = *((int16_t*)&stack.top());
+                stack.pop();
+                auto i2 = *((int16_t*)&stack.top());
+                stack.pop();
+                stack.push(i2 * i1);
                 break;
             }
 
             case opcode::i16_div : {
+                auto i1 = *((int16_t*)&stack.top());
+                stack.pop();
+                auto i2 = *((int16_t*)&stack.top());
+                stack.pop();
+                stack.push(i2 / i1);
                 break;
             }
 
             case opcode::i16_rem : {
+                auto i1 = *((int16_t*)&stack.top());
+                stack.pop();
+                auto i2 = *((int16_t*)&stack.top());
+                stack.pop();
+                stack.push(i2 % i1);
                 break;
             }
 
             case opcode::i16_l_shift : {
+                auto i1 = *((int16_t*)&stack.top());
+                stack.pop();
+                auto i2 = *((int16_t*)&stack.top());
+                stack.pop();
+                stack.push(i2 << i1);
                 break;
             }
 
             case opcode::i16_r_shift : {
-                break;
-            }
-
-            case opcode::i16_ur_shift : {
+                auto i1 = *((int16_t*)&stack.top());
+                stack.pop();
+                auto i2 = *((int16_t*)&stack.top());
+                stack.pop();
+                stack.push(i2 >> i1);
                 break;
             }
 
             case opcode::i16_and : {
+                auto i1 = *((uint16_t*)&stack.top());
+                stack.pop();
+                auto i2 = *((uint16_t*)&stack.top());
+                stack.pop();
+                stack.push(i2 & i1);
                 break;
             }
 
             case opcode::i16_or : {
+                auto i1 = *((uint16_t*)&stack.top());
+                stack.pop();
+                auto i2 = *((uint16_t*)&stack.top());
+                stack.pop();
+                stack.push(i2 | i1);
                 break;
             }
 
             case opcode::i16_xor : {
+                auto i1 = *((uint16_t*)&stack.top());
+                stack.pop();
+                auto i2 = *((uint16_t*)&stack.top());
+                stack.pop();
+                stack.push(i2 ^ i1);
                 break;
             }
 
@@ -293,15 +383,6 @@ void NyanVM::run(VMThread* vm_thread, size_t thread_id, CodeBlock *code_block) {
                 auto i1 = *((int32_t*)&stack.top());
                 stack.pop();
                 auto i2 = *((int32_t*)&stack.top());
-                stack.pop();
-                stack.push(i2 >> i1);
-                break;
-            }
-
-            case opcode::i32_ur_shift : {
-                auto i1 = *((uint32_t*)&stack.top());
-                stack.pop();
-                auto i2 = *((uint32_t*)&stack.top());
                 stack.pop();
                 stack.push(i2 >> i1);
                 break;
@@ -397,15 +478,6 @@ void NyanVM::run(VMThread* vm_thread, size_t thread_id, CodeBlock *code_block) {
                 break;
             }
 
-            case opcode::i64_ur_shift : {
-                auto i1 = *((uint64_t*)&stack.top());
-                stack.pop();
-                auto i2 = *((uint64_t*)&stack.top());
-                stack.pop();
-                stack.push(i2 >> i1);
-                break;
-            }
-
             case opcode::i64_and : {
                 auto i1 = *((uint64_t*)&stack.top());
                 stack.pop();
@@ -433,43 +505,443 @@ void NyanVM::run(VMThread* vm_thread, size_t thread_id, CodeBlock *code_block) {
                 break;
             }
 
+            case opcode::u8_add : {
+                auto i1 = ((uint8_t)stack.top());
+                stack.pop();
+                auto i2 = ((uint8_t)stack.top());
+                stack.pop();
+                stack.push(i2 + i1);
+                break;
+            }
+
+            case opcode::u8_sub : {
+                auto i1 = ((uint8_t)stack.top());
+                stack.pop();
+                auto i2 = ((uint8_t)stack.top());
+                stack.pop();
+                stack.push(i2 - i1);
+                break;
+            }
+
+            case opcode::u8_mul : {
+                auto i1 = ((uint8_t)stack.top());
+                stack.pop();
+                auto i2 = ((uint8_t)stack.top());
+                stack.pop();
+                stack.push(i2 * i1);
+                break;
+            }
+
+            case opcode::u8_div : {
+                auto i1 = ((uint8_t)stack.top());
+                stack.pop();
+                auto i2 = ((uint8_t)stack.top());
+                stack.pop();
+                stack.push(i2 / i1);
+                break;
+            }
+
+            case opcode::u8_rem : {
+                auto i1 = ((uint8_t)stack.top());
+                stack.pop();
+                auto i2 = ((uint8_t)stack.top());
+                stack.pop();
+                stack.push(i2 % i1);
+                break;
+            }
+
+            case opcode::u8_l_shift : {
+                auto i1 = ((uint8_t)stack.top());
+                stack.pop();
+                auto i2 = ((uint8_t)stack.top());
+                stack.pop();
+                stack.push(i2 << i1);
+                break;
+            }
+
+            case opcode::u8_r_shift : {
+                auto i1 = ((uint8_t)stack.top());
+                stack.pop();
+                auto i2 = ((uint8_t)stack.top());
+                stack.pop();
+                stack.push(i2 >> i1);
+                break;
+            }
+
+            case opcode::u8_and : {
+                auto i1 = ((uint8_t)stack.top());
+                stack.pop();
+                auto i2 = ((uint8_t)stack.top());
+                stack.pop();
+                stack.push(i2 & i1);
+                break;
+            }
+
+            case opcode::u8_or : {
+                auto i1 = ((uint8_t)stack.top());
+                stack.pop();
+                auto i2 = ((uint8_t)stack.top());
+                stack.pop();
+                stack.push(i2 | i1);
+                break;
+            }
+
+            case opcode::u8_xor : {
+                auto i1 = ((uint8_t)stack.top());
+                stack.pop();
+                auto i2 = ((uint8_t)stack.top());
+                stack.pop();
+                stack.push(i2 ^ i1);
+                break;
+            }
+
+            case opcode::u16_add : {
+                auto i1 = ((uint16_t)stack.top());
+                stack.pop();
+                auto i2 = ((uint16_t)stack.top());
+                stack.pop();
+                stack.push(i2 + i1);
+                break;
+            }
+
+            case opcode::u16_sub : {
+                auto i1 = ((uint16_t)stack.top());
+                stack.pop();
+                auto i2 = ((uint16_t)stack.top());
+                stack.pop();
+                stack.push(i2 - i1);
+                break;
+            }
+
+            case opcode::u16_mul : {
+                auto i1 = ((uint16_t)stack.top());
+                stack.pop();
+                auto i2 = ((uint16_t)stack.top());
+                stack.pop();
+                stack.push(i2 * i1);
+                break;
+            }
+
+            case opcode::u16_div : {
+                auto i1 = ((uint16_t)stack.top());
+                stack.pop();
+                auto i2 = ((uint16_t)stack.top());
+                stack.pop();
+                stack.push(i2 / i1);
+                break;
+            }
+
+            case opcode::u16_rem : {
+                auto i1 = ((uint16_t)stack.top());
+                stack.pop();
+                auto i2 = ((uint16_t)stack.top());
+                stack.pop();
+                stack.push(i2 % i1);
+                break;
+            }
+
+            case opcode::u16_l_shift : {
+                auto i1 = ((uint16_t)stack.top());
+                stack.pop();
+                auto i2 = ((uint16_t)stack.top());
+                stack.pop();
+                stack.push(i2 << i1);
+                break;
+            }
+
+            case opcode::u16_r_shift : {
+                auto i1 = ((uint16_t)stack.top());
+                stack.pop();
+                auto i2 = ((uint16_t)stack.top());
+                stack.pop();
+                stack.push(i2 >> i1);
+                break;
+            }
+
+            case opcode::u16_and : {
+                auto i1 = ((uint16_t)stack.top());
+                stack.pop();
+                auto i2 = ((uint16_t)stack.top());
+                stack.pop();
+                stack.push(i2 & i1);
+                break;
+            }
+
+            case opcode::u16_or : {
+                auto i1 = ((uint16_t)stack.top());
+                stack.pop();
+                auto i2 = ((uint16_t)stack.top());
+                stack.pop();
+                stack.push(i2 | i1);
+                break;
+            }
+
+            case opcode::u16_xor : {
+                auto i1 = ((uint16_t)stack.top());
+                stack.pop();
+                auto i2 = ((uint16_t)stack.top());
+                stack.pop();
+                stack.push(i2 ^ i1);
+                break;
+            }
+
+            case opcode::u32_add : {
+                auto i1 = ((uint32_t)stack.top());
+                stack.pop();
+                auto i2 = ((uint32_t)stack.top());
+                stack.pop();
+                stack.push(i2 + i1);
+                break;
+            }
+
+            case opcode::u32_sub : {
+                auto i1 = ((uint32_t)stack.top());
+                stack.pop();
+                auto i2 = ((uint32_t)stack.top());
+                stack.pop();
+                stack.push(i2 - i1);
+                break;
+            }
+
+            case opcode::u32_mul : {
+                auto i1 = ((uint32_t)stack.top());
+                stack.pop();
+                auto i2 = ((uint32_t)stack.top());
+                stack.pop();
+                stack.push(i2 * i1);
+                break;
+            }
+
+            case opcode::u32_div : {
+                auto i1 = ((uint32_t)stack.top());
+                stack.pop();
+                auto i2 = ((uint32_t)stack.top());
+                stack.pop();
+                stack.push(i2 / i1);
+                break;
+            }
+
+            case opcode::u32_rem : {
+                auto i1 = ((uint32_t)stack.top());
+                stack.pop();
+                auto i2 = ((uint32_t)stack.top());
+                stack.pop();
+                stack.push(i2 % i1);
+                break;
+            }
+
+            case opcode::u32_l_shift : {
+                auto i1 = ((uint32_t)stack.top());
+                stack.pop();
+                auto i2 = ((uint32_t)stack.top());
+                stack.pop();
+                stack.push(i2 << i1);
+                break;
+            }
+
+            case opcode::u32_r_shift : {
+                auto i1 = ((uint32_t)stack.top());
+                stack.pop();
+                auto i2 = ((uint32_t)stack.top());
+                stack.pop();
+                stack.push(i2 >> i1);
+                break;
+            }
+
+            case opcode::u32_and : {
+                auto i1 = ((uint32_t)stack.top());
+                stack.pop();
+                auto i2 = ((uint32_t)stack.top());
+                stack.pop();
+                stack.push(i2 & i1);
+                break;
+            }
+
+            case opcode::u32_or : {
+                auto i1 = ((uint32_t)stack.top());
+                stack.pop();
+                auto i2 = ((uint32_t)stack.top());
+                stack.pop();
+                stack.push(i2 | i1);
+                break;
+            }
+
+            case opcode::u32_xor : {
+                auto i1 = ((uint32_t)stack.top());
+                stack.pop();
+                auto i2 = ((uint32_t)stack.top());
+                stack.pop();
+                stack.push(i2 ^ i1);
+                break;
+            }
+
+            case opcode::u64_add : {
+                auto i1 = stack.top();
+                stack.pop();
+                auto i2 = stack.top();
+                stack.pop();
+                stack.push(i2 + i1);
+                break;
+            }
+
+            case opcode::u64_sub : {
+                auto i1 = stack.top();
+                stack.pop();
+                auto i2 = stack.top();
+                stack.pop();
+                stack.push(i2 - i1);
+                break;
+            }
+
+            case opcode::u64_mul : {
+                auto i1 = stack.top();
+                stack.pop();
+                auto i2 = stack.top();
+                stack.pop();
+                stack.push(i2 * i1);
+                break;
+            }
+
+            case opcode::u64_div : {
+                auto i1 = stack.top();
+                stack.pop();
+                auto i2 = stack.top();
+                stack.pop();
+                stack.push(i2 / i1);
+                break;
+            }
+
+            case opcode::u64_rem : {
+                auto i1 = stack.top();
+                stack.pop();
+                auto i2 = stack.top();
+                stack.pop();
+                stack.push(i2 % i1);
+                break;
+            }
+
+            case opcode::u64_l_shift : {
+                auto i1 = stack.top();
+                stack.pop();
+                auto i2 = stack.top();
+                stack.pop();
+                stack.push(i2 << i1);
+                break;
+            }
+
+            case opcode::u64_r_shift : {
+                auto i1 = stack.top();
+                stack.pop();
+                auto i2 = stack.top();
+                stack.pop();
+                stack.push(i2 >> i1);
+                break;
+            }
+
+            case opcode::u64_and : {
+                auto i1 = stack.top();
+                stack.pop();
+                auto i2 = stack.top();
+                stack.pop();
+                stack.push(i2 & i1);
+                break;
+            }
+
+            case opcode::u64_or : {
+                auto i1 = stack.top();
+                stack.pop();
+                auto i2 = stack.top();
+                stack.pop();
+                stack.push(i2 | i1);
+                break;
+            }
+
+            case opcode::u64_xor : {
+                auto i1 = stack.top();
+                stack.pop();
+                auto i2 = stack.top();
+                stack.pop();
+                stack.push(i2 ^ i1);
+                break;
+            }
+
             case opcode::f32_add : {
+                auto i1 = *((float*)&stack.top());
+                stack.pop();
+                auto i2 = *((float*)&stack.top());
+                stack.pop();
+                auto result = i2 + i1;
+                stack.push(*((uint64_t*)&result));
                 break;
             }
 
             case opcode::f32_sub : {
+                auto i1 = *((float*)&stack.top());
+                stack.pop();
+                auto i2 = *((float*)&stack.top());
+                stack.pop();
+                auto result = i2 - i1;
+                stack.push(*((uint64_t*)&result));
                 break;
             }
 
             case opcode::f32_mul : {
+                auto i1 = *((float*)&stack.top());
+                stack.pop();
+                auto i2 = *((float*)&stack.top());
+                stack.pop();
+                auto result = i2 * i1;
+                stack.push(*((uint64_t*)&result));
                 break;
             }
 
             case opcode::f32_div : {
-                break;
-            }
-
-            case opcode::f32_rem : {
+                auto i1 = *((float*)&stack.top());
+                stack.pop();
+                auto i2 = *((float*)&stack.top());
+                stack.pop();
+                auto result = i2 / i1;
+                stack.push(*((uint64_t*)&result));
                 break;
             }
 
             case opcode::f64_add : {
+                auto i1 = *((double*)&stack.top());
+                stack.pop();
+                auto i2 = *((double*)&stack.top());
+                stack.pop();
+                auto result = i2 + i1;
+                stack.push(*((uint64_t*)&result));
                 break;
             }
 
             case opcode::f64_sub : {
+                auto i1 = *((double*)&stack.top());
+                stack.pop();
+                auto i2 = *((double*)&stack.top());
+                stack.pop();
+                auto result = i2 - i1;
+                stack.push(*((uint64_t*)&result));
                 break;
             }
 
             case opcode::f64_mul : {
+                auto i1 = *((double*)&stack.top());
+                stack.pop();
+                auto i2 = *((double*)&stack.top());
+                stack.pop();
+                auto result = i2 * i1;
+                stack.push(*((uint64_t*)&result));
                 break;
             }
 
             case opcode::f64_div : {
-                break;
-            }
-
-            case opcode::f64_rem : {
+                auto i1 = *((double*)&stack.top());
+                stack.pop();
+                auto i2 = *((double*)&stack.top());
+                stack.pop();
+                auto result = i2 / i1;
+                stack.push(*((uint64_t*)&result));
                 break;
             }
 

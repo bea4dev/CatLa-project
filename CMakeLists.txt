@@ -14,8 +14,6 @@ include_directories(${PROJECT_SOURCE_DIR}/src)
 
 add_executable(catla
         src/CatLa.cpp
-        src/heap/HeapManager.cpp
-        src/heap/HeapObject.cpp
         src/vm/modules/CatLaClass.cpp
         src/vm/modules/ClassField.cpp
         src/vm/modules/CodeBlock.cpp
@@ -23,7 +21,8 @@ add_executable(catla
         src/vm/modules/CatLaFunction.cpp
         src/vm/NyanVM.cpp
         src/util/Concurrent.h
-        src/vm/stack/stack.cpp)
+        src/vm/stack/stack.cpp
+        src/util/Benchmark.cpp src/heap/HeapRegion.cpp src/heap/HeapRegion.h)
 
 llvm_map_components_to_libnames(llvm_libs
         Core

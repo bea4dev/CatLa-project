@@ -4,7 +4,7 @@
 #include <mutex>
 
 namespace heap {
-    class HeapManager;
+    class HeapLifeManager;
 }
 
 using namespace heap;

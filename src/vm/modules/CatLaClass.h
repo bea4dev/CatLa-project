@@ -11,8 +11,9 @@ namespace modules {
         std::string class_name;
         uint32_t runtime_class_id;
         size_t number_of_fields;
+        CatLaClass* parent;
 
-        CatLaClass(std::string class_name, uint32_t runtime_class_id, size_t number_of_fields);
+        CatLaClass(std::string class_name, uint32_t runtime_class_id, size_t number_of_fields, CatLaClass* parent);
 
     };
 
