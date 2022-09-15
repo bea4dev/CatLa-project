@@ -4,21 +4,22 @@
 
 
 typedef struct {
-    uint32_t flags; //4bit
-    atomic_flag lock_flag; //4bit
-    size_t refs_length; //8bit
-    size_t vals_length; //8bit
-    CatLaClass* class_info; //8bit
-} HeapClassObject;
+    atomic_size_t count; //8byte
+    uint32_t flags; //4byte
+    atomic_flag lock_flag; //4byte
+    size_t refs_length; //8byte
+    size_t vals_length; //8byte
+    CatLaClass* class_info; //8byte
+} HeapObject;
 
 
 class HeapRegion {
 private:
-    uint8_t* start_position;
-    size_t size;
+    size_t cells_size;
+    uint8_t** entry_positions;
 
 public:
-    HeapRegion(size_t size);
+    HeapRegion(size_t cells_size);
     ~HeapRegion();
     void* alloc_for_class(CatLaClass* class_info, size_t refs_length, size_t vals_length);
 

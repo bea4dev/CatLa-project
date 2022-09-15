@@ -91,7 +91,7 @@ int main()
     printf("%p\n", heap1);
 
     printf("%llu\n", sizeof(atomic_flag));
-    printf("%llu\n", sizeof(HeapClassObject));
+    printf("%llu\n", sizeof(HeapObject));
 
     std::cout << "Complete!\n";
 }
