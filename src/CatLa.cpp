@@ -93,5 +93,17 @@ int main()
     printf("%llu\n", sizeof(atomic_flag));
     printf("%llu\n", sizeof(HeapObject));
 
+    auto* heap_region = new HeapRegion(8);
+    auto* object1 = (HeapObject*) heap_region->alloc_for_class(nullptr, 0, 0);
+    object1->count.store(100);
+    auto* object2 = (HeapObject*) heap_region->alloc_for_class(nullptr, 0, 0);
+    object2->count = 200;
+    auto* object3 = (HeapObject*) heap_region->alloc_for_class(nullptr, 0, 0);
+    object3->count = 300;
+    printf("%llu\n", object1->count.load());
+    printf("%llu\n", object2->count.load());
+    printf("%llu\n", object3->count.load());
+
+
     std::cout << "Complete!\n";
 }

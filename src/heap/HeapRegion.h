@@ -12,6 +12,20 @@ typedef struct {
     CatLaClass* class_info; //8byte
 } HeapObject;
 
+inline void object_lock(HeapObject* object) {
+    while (object->lock_flag.test_and_set(std::memory_order_acquire)) {
+        //wait
+    }
+}
+
+inline void object_unlock(HeapObject* object) {
+    object->lock_flag.clear(std::memory_order_release);
+}
+
+inline void mark_object_alive(HeapObject* object) {
+    object->flags |= 1;
+}
+
 
 class HeapRegion {
 private:

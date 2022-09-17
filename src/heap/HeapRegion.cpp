@@ -28,7 +28,7 @@ using namespace heap;
 HeapRegion::HeapRegion(size_t cells_size) {
     this->cells_size = cells_size;
 
-    size_t entry_positions_size = NUMBER_OF_BLOCKS * (sizeof(uint8_t*) >> 3);
+    size_t entry_positions_size = NUMBER_OF_BLOCKS * sizeof(void*);
     auto* position0 = (uint8_t*) calloc(1, cells_size * BLOCKS_SIZE + entry_positions_size);
 
     auto* position1 = position0 + BLOCK_SIZE0 * cells_size;
@@ -81,14 +81,19 @@ HeapRegion::~HeapRegion() {
 #endif
 
 void* HeapRegion::alloc_for_class(CatLaClass* class_info, size_t refs_length, size_t vals_length) {
-    size_t byte_size = (sizeof(HeapRegion) / 8) + (refs_length << ADDRESS_SIZE_SHIFT) + (vals_length << ADDRESS_SIZE_SHIFT);
+    size_t byte_size = sizeof(HeapObject) + (refs_length << ADDRESS_SIZE_SHIFT) + (vals_length << ADDRESS_SIZE_SHIFT);
 
     if (byte_size < BLOCK_SIZE8) {
         size_t index;
         if (byte_size <= BLOCK_SIZE0) {
             index = 0;
         } else {
-            index = ((byte_size - BLOCK_SIZE0) >> 3) + 1;
+            size_t temp = byte_size - BLOCK_SIZE0;
+            if ((temp & 0b111) == 0) {
+                index = ((temp) >> 3);
+            } else {
+                index = ((temp) >> 3) + 1;
+            }
         }
         size_t block_size = BLOCK_SIZE0 + (index << 3);
         uint8_t* block_entry = this->entry_positions[index];
@@ -100,13 +105,78 @@ void* HeapRegion::alloc_for_class(CatLaClass* class_info, size_t refs_length, si
                 continue;
             }
 
-            size_t previous_count = object->count.fetch_add(1);
-            if (previous_count == 0) {
-                return object;
-            } else {
-                object->count.fetch_sub(1);
+            object_lock(object);
+            if (object->flags != 0) {
+                object_unlock(object);
                 continue;
             }
+            mark_object_alive(object);
+            object_unlock(object);
+            return object;
+        }
+    } else if (byte_size < BLOCK_SIZE12) {
+        size_t index;
+        if (byte_size <= BLOCK_SIZE9) {
+            index = 0;
+        } else {
+            size_t temp = byte_size - BLOCK_SIZE9;
+            if ((temp & 0b1111111) == 0) {
+                index = ((temp) >> 7);
+            } else {
+                index = ((temp) >> 7) + 1;
+            }
+        }
+        size_t block_size = BLOCK_SIZE9 + (index << 7);
+        uint8_t* block_entry = this->entry_positions[index + 9];
+
+        for (size_t address_index = 0; address_index < this->cells_size; address_index++) {
+            uint8_t* entry = block_entry + (address_index * block_size);
+            auto* object = (HeapObject*) entry;
+            if (object->flags != 0) {
+                continue;
+            }
+
+            object_lock(object);
+            if (object->flags != 0) {
+                object_unlock(object);
+                continue;
+            }
+            mark_object_alive(object);
+            object_unlock(object);
+            return object;
+        }
+    } else {
+        size_t index;
+        if (byte_size <= BLOCK_SIZE13) {
+            index = 0;
+        } else {
+            size_t temp = byte_size - BLOCK_SIZE13;
+            if ((temp & 0b1111111111111) == 0) {
+                index = ((temp) >> 10);
+            } else {
+                index = ((temp) >> 10) + 1;
+            }
+        }
+        size_t block_size = BLOCK_SIZE13 + (index << 10);
+        uint8_t* block_entry = this->entry_positions[index + 13];
+
+        for (size_t address_index = 0; address_index < this->cells_size; address_index++) {
+            uint8_t* entry = block_entry + (address_index * block_size);
+            auto* object = (HeapObject*) entry;
+            if (object->flags != 0) {
+                continue;
+            }
+
+            object_lock(object);
+            if (object->flags != 0) {
+                object_unlock(object);
+                continue;
+            }
+            mark_object_alive(object);
+            object_unlock(object);
+            return object;
         }
     }
+
+    return nullptr;
 }
