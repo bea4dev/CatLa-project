@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <util/Concurrent.h>
 
+using namespace concurrent;
 
 typedef struct {
     atomic_size_t count; //8byte
@@ -27,14 +28,27 @@ inline void mark_object_alive(HeapObject* object) {
 }
 
 
-class HeapRegion {
+class HeapChunk {
 private:
     size_t cells_size;
     uint8_t** entry_positions;
+    bool* block_space_info;
 
 public:
-    HeapRegion(size_t cells_size);
-    ~HeapRegion();
+    explicit HeapChunk(size_t cells_size);
+    ~HeapChunk();
     void* alloc_for_class(CatLaClass* class_info, size_t refs_length, size_t vals_length);
+    void* malloc(CatLaClass* class_info, size_t index, size_t block_size, size_t* byte_size);
+};
 
+class GlobalHeap {
+private:
+    size_t chunks_size;
+    HeapChunk** chunks;
+    SpinLock lock;
+
+public:
+    explicit GlobalHeap(size_t chunks_cells_size);
+    void* malloc(CatLaClass* class_info, size_t refs_length, size_t vals_length, size_t* start_index);
+    void create_new_chunk(size_t cells_size);
 };

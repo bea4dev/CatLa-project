@@ -9,7 +9,7 @@
 #include <util/Benchmark.h>
 #include <stack>
 #include <util/Concurrent.h>
-#include <heap/HeapRegion.h>
+#include <heap/HeapChunk.h>
 
 NyanVM* virtual_machine = nullptr;
 
@@ -81,28 +81,57 @@ size_t test(size_t address) {
     return 0;
 }
 
+GlobalHeap* global_heap;
+size_t j = 0;
+size_t c = 0;
+
+HeapObject* create(int count) {
+    if (count > 20) {
+        c++;
+        return (HeapObject*) global_heap->malloc(nullptr, 2, 0, &j);
+    }
+    count++;
+    c++;
+    auto* parent = (size_t**) global_heap->malloc(nullptr, 2, 0, &j);
+    auto* child1 = create(count);
+    auto* child2 = create(count);
+    if (parent != nullptr) {
+        parent[5] = (size_t *) child1;
+        parent[6] = (size_t *) child2;
+    } else {
+        printf("NULL! %d\n", c);
+    }
+    return (HeapObject*) parent;
+}
+
+using namespace benchmark;
+
 int main()
 {
     std::cout << "Hello World!\n";
 
     setup_virtual_machine();
 
-    void* heap1 = calloc(1, 1024);
-    printf("%p\n", heap1);
+    global_heap = new GlobalHeap(64);
+    for (int t = 0; t < 1000; t++) {
+        global_heap->create_new_chunk(64);
+    }
 
-    printf("%llu\n", sizeof(atomic_flag));
-    printf("%llu\n", sizeof(HeapObject));
 
-    auto* heap_region = new HeapRegion(8);
-    auto* object1 = (HeapObject*) heap_region->alloc_for_class(nullptr, 0, 0);
-    object1->count.store(100);
-    auto* object2 = (HeapObject*) heap_region->alloc_for_class(nullptr, 0, 0);
-    object2->count = 200;
-    auto* object3 = (HeapObject*) heap_region->alloc_for_class(nullptr, 0, 0);
-    object3->count = 300;
-    printf("%llu\n", object1->count.load());
-    printf("%llu\n", object2->count.load());
-    printf("%llu\n", object3->count.load());
+    Timing timing;
+    printf("1\n");
+    timing.start();
+    //create(0);
+    for (int a = 0; a < 100; a++) {
+        void* object = global_heap->malloc(nullptr, 2, 0, &j);
+        if (object == nullptr) {
+            printf("NULL!!!!\n");
+        }
+    }
+    timing.end();
+    printf("2\n");
+
+    printf("%llu[ms]\n", timing.get_sum_time());
 
 
     std::cout << "Complete!\n";
