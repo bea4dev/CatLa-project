@@ -10,6 +10,8 @@ include_directories(${LLVM_INCLUDE_DIRS})
 separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND ${LLVM_DEFINITIONS})
 add_definitions(${LLVM_DEFINITIONS_LIST})
 
+find_package(PythonLibs 3.10 REQUIRED)
+
 include_directories(${PROJECT_SOURCE_DIR}/src)
 
 add_executable(catla
@@ -23,7 +25,7 @@ add_executable(catla
         src/util/Concurrent.h
         src/vm/stack/stack.cpp
         src/util/Benchmark.cpp
-        src/heap/HeapChunk.cpp)
+        src/heap/HeapAllocator.cpp)
 
 llvm_map_components_to_libnames(llvm_libs
         Core
@@ -34,7 +36,8 @@ llvm_map_components_to_libnames(llvm_libs
         Support
         nativecodegen)
 
-target_link_libraries(catla ${llvm_libs})
+target_include_directories(catla PRIVATE ${PYTHON_INCLUDE_DIRS})
+target_link_libraries(catla ${llvm_libs} ${Boost_LIBRARIES} ${PYTHON_LIBRARIES})
 
 if(WIN32)
     target_link_libraries(catla libpthreadGC2 libpthreadGCE2)

@@ -372,3 +372,4 @@ FodyWeavers.xsd
 .vscode/
 # プロジェクトの除外パス
 /cmake-build-debug-visual-studio/
+/cmake-build-release-visual-studio/

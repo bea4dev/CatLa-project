@@ -9,7 +9,8 @@
 #include <util/Benchmark.h>
 #include <stack>
 #include <util/Concurrent.h>
-#include <heap/HeapChunk.h>
+#include <heap/HeapAllocator.h>
+#include <Python.h>
 
 NyanVM* virtual_machine = nullptr;
 
@@ -89,15 +90,17 @@ HeapObject* create(int count) {
     if (count > 20) {
         c++;
         return (HeapObject*) global_heap->malloc(nullptr, 2, 0, &j);
+        //return (HeapObject*) calloc(1, 40 + 16);
     }
     count++;
     c++;
     auto* parent = (size_t**) global_heap->malloc(nullptr, 2, 0, &j);
+    //auto* parent = (size_t**) calloc(1, 40 + 16);
     auto* child1 = create(count);
     auto* child2 = create(count);
     if (parent != nullptr) {
-        parent[5] = (size_t *) child1;
-        parent[6] = (size_t *) child2;
+        parent[5] = (size_t*) child1;
+        parent[6] = (size_t*) child2;
     } else {
         printf("NULL! %d\n", c);
     }
@@ -112,22 +115,27 @@ int main()
 
     setup_virtual_machine();
 
-    global_heap = new GlobalHeap(64);
-    for (int t = 0; t < 1000; t++) {
-        global_heap->create_new_chunk(64);
-    }
-
+    global_heap = new GlobalHeap(1024, 1);
+    /*for (int t = 0; t < 600; t++) {
+        global_heap->create_new_chunk(1024);
+    }*/
+    Py_Initialize();
+    PyRun_SimpleString("print('hello, world!')");
+    auto* module = PyModule_New("test");
+    Py_Finalize();
+    //return 0;
 
     Timing timing;
     printf("1\n");
     timing.start();
-    //create(0);
-    for (int a = 0; a < 100; a++) {
+    create(0);
+
+    /*for (int a = 0; a < 100; a++) {
         void* object = global_heap->malloc(nullptr, 2, 0, &j);
         if (object == nullptr) {
             printf("NULL!!!!\n");
         }
-    }
+    }*/
     timing.end();
     printf("2\n");
 

@@ -28,27 +28,32 @@ inline void mark_object_alive(HeapObject* object) {
 }
 
 
+typedef struct {
+    uint8_t* entry_position;
+    bool empty;
+    size_t current_automaton_index;
+} BlockInfo;
+
 class HeapChunk {
-private:
+public:
     size_t cells_size;
-    uint8_t** entry_positions;
-    bool* block_space_info;
+    BlockInfo* block_info_list;
 
 public:
     explicit HeapChunk(size_t cells_size);
     ~HeapChunk();
-    void* alloc_for_class(CatLaClass* class_info, size_t refs_length, size_t vals_length);
-    void* malloc(CatLaClass* class_info, size_t index, size_t block_size, size_t* byte_size);
+    void* malloc(CatLaClass* class_info, size_t index, size_t block_size);
 };
 
 class GlobalHeap {
 private:
-    size_t chunks_size;
+    size_t number_of_chunks;
     HeapChunk** chunks;
     SpinLock lock;
+    size_t chunks_cells_size;
 
 public:
-    explicit GlobalHeap(size_t chunks_cells_size);
+    GlobalHeap(size_t chunks_cells_size, size_t number_of_chunks);
     void* malloc(CatLaClass* class_info, size_t refs_length, size_t vals_length, size_t* start_index);
     void create_new_chunk(size_t cells_size);
 };
