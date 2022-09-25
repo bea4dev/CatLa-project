@@ -11,6 +11,9 @@
 #include <util/Concurrent.h>
 #include <heap/HeapAllocator.h>
 #include <Python.h>
+#include <string>
+#include <regex>
+#include <util/StringUtil.h>
 
 NyanVM* virtual_machine = nullptr;
 
@@ -119,6 +122,14 @@ int main()
     /*for (int t = 0; t < 600; t++) {
         global_heap->create_new_chunk(1024);
     }*/
+
+    std::string a = "testあああ漢字aa";
+    vector<string> result = util::split(a, "");
+    for (auto& it : result) {
+        std::cout << it << std::endl;
+    }
+
+
     Py_Initialize();
     PyRun_SimpleString("print('hello, world!')");
     auto* module = PyModule_New("test");

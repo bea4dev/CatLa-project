@@ -40,5 +40,5 @@ target_include_directories(catla PRIVATE ${PYTHON_INCLUDE_DIRS})
 target_link_libraries(catla ${llvm_libs} ${Boost_LIBRARIES} ${PYTHON_LIBRARIES})
 
 if(WIN32)
-    target_link_libraries(catla libpthreadGC2 libpthreadGCE2)
+    target_link_libraries(catla pthread_static_lib)
 endif()
