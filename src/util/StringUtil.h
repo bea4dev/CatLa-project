@@ -6,10 +6,12 @@
 
 using namespace std;
 
+
 namespace util {
 
     vector<string> split(string original, const string& separator_str) {
-
+        vector<string> result;
+        return result;
     }
 
 }

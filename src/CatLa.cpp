@@ -94,11 +94,13 @@ HeapObject* create(int count) {
         c++;
         return (HeapObject*) global_heap->malloc(nullptr, 2, 0, &j);
         //return (HeapObject*) calloc(1, 40 + 16);
+        //return (HeapObject*) malloc(40 + 16);
     }
     count++;
     c++;
     auto* parent = (size_t**) global_heap->malloc(nullptr, 2, 0, &j);
     //auto* parent = (size_t**) calloc(1, 40 + 16);
+    //auto* parent = (size_t**) malloc(40 + 16);
     auto* child1 = create(count);
     auto* child2 = create(count);
     if (parent != nullptr) {
