@@ -9,6 +9,8 @@ namespace parser {
 
     VMModule* parse(string name, string* code);
 
-    ConstValue* parse_const(size_t code_length, const char* code, size_t* position);
+    ConstValue* parse_const(const char* code, size_t code_length, size_t* position);
+
+    void move_until(const char* code, size_t code_length, size_t* position, const char* chars, size_t chars_size, string* word);
 
 }
