@@ -14,6 +14,7 @@
 #include <string>
 #include <regex>
 #include <util/StringUtil.h>
+#include <vm/parser/VMParser.h>
 
 NyanVM* virtual_machine = nullptr;
 
@@ -125,16 +126,9 @@ int main()
         global_heap->create_new_chunk(1024);
     }*/
 
-    std::string a = "testあああ漢字aa";
-    vector<string> result = util::split(a, "");
-    for (auto& it : result) {
-        std::cout << it << std::endl;
-    }
-
 
     Py_Initialize();
     PyRun_SimpleString("print('hello, world!')");
-    auto* module = PyModule_New("test");
     Py_Finalize();
     //return 0;
 
@@ -153,6 +147,59 @@ int main()
     printf("2\n");
 
     printf("%llu[ms]\n", timing.get_sum_time());
+
+    string vm_code = u8"$const;\n"
+                     "  0:4:s#nyan\n"
+                     "  1:13:s#catla::system\n"
+                     "  2:13:s#catla::string\n"
+                     "  3:13:s#catla::stdout\n"
+                     "  4:16:s#catla::primitive\n"
+                     "  5:12:s#Hello world!\n"
+                     "  6:4:i#-128\n"
+                     "  7:4:f#3.14\n"
+                     "$end;";
+    auto* module = parser::parse("test", &vm_code);
+    if (module != nullptr) {
+        auto* const_values = module->const_values;
+        size_t const_values_size = module->const_values_size;
+        if (const_values != nullptr) {
+            for (size_t index = 0; index < const_values_size; index++) {
+                auto* const_value_reference = const_values + index;
+                size_t byte_size = const_value_reference->byte_size;
+
+                switch (const_value_reference->type) {
+                    case 's': {
+                        char* word_str = (char*) const_value_reference->value_reference;
+                        char* str = new char[byte_size + 1];
+                        for (size_t s = 0; s < byte_size; s++) {
+                            str[s] = word_str[s];
+                        }
+                        str[byte_size] = '\0';
+                        printf("const : string : %s\n", str);
+                        delete[] str;
+                        break;
+                    }
+                    case 'i': {
+                        int64_t ci = *((int64_t*) const_value_reference->value_reference);
+                        printf("const : int64 : %lld\n", ci);
+                        break;
+                    }
+                    case 'f': {
+                        double cf = *((double*) const_value_reference->value_reference);
+                        printf("const : double : %f\n", cf);
+                        break;
+                    }
+                    default: {
+                        printf("const : UNKNOWN\n");
+                    }
+                }
+            }
+        } else {
+            printf("Const values is null!\n");
+        }
+    } else {
+        printf("Module is null!\n");
+    }
 
 
     std::cout << "Complete!\n";

@@ -7,14 +7,16 @@
 using namespace std;
 
 typedef struct {
-    size_t length;
-    void* entry_position;
+    size_t byte_size;
+    char type;
+    void* value_reference;
 } ConstValue;
 
 class VMModule {
 public:
     ConstValue* const_values;
+    size_t const_values_size;
 
 public:
-    explicit VMModule(ConstValue* const_values);
+    explicit VMModule(ConstValue* const_values, size_t const_values_size);
 };

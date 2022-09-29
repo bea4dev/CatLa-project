@@ -25,7 +25,9 @@ add_executable(catla
         src/util/Concurrent.h
         src/vm/stack/stack.cpp
         src/util/Benchmark.cpp
-        src/heap/HeapAllocator.cpp src/vm/parser/VMParser.cpp src/vm/parser/VMParser.h src/vm/modules/VMModule.cpp src/vm/modules/VMModule.h)
+        src/heap/HeapAllocator.cpp
+        src/vm/parser/VMParser.cpp
+        src/vm/modules/VMModule.cpp)
 
 llvm_map_components_to_libnames(llvm_libs
         Core
