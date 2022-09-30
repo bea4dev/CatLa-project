@@ -148,6 +148,9 @@ int main()
 
     printf("%llu[ms]\n", timing.get_sum_time());
 
+    auto* dummy_module = new VMModule("nyan", nullptr, 0, nullptr, 0);
+    virtual_machine->register_module(dummy_module);
+
     string vm_code = u8"$const;\n"
                      "  0:4:s#nyan\n"
                      "  1:13:s#catla::system\n"
@@ -157,6 +160,11 @@ int main()
                      "  5:12:s#Hello world!\n"
                      "  6:4:i#-128\n"
                      "  7:4:f#3.14\n"
+                     "$end;\n"
+                     "\n"
+                     "$import;\n"
+                     "  0:this\n"
+                     "  1:const#0\n"
                      "$end;";
     auto* module = parser::parse("test", &vm_code);
     if (module != nullptr) {
@@ -196,6 +204,17 @@ int main()
             }
         } else {
             printf("Const values is null!\n");
+        }
+
+        auto** imports = module->imports;
+        if (imports != nullptr) {
+            size_t imports_size = module->imports_size;
+            for (size_t s = 0; s < imports_size; s++) {
+                auto *mod = imports[s];
+                printf("import : %s\n", mod->name.c_str());
+            }
+        } else {
+            printf("IMPORTS NULL!\n");
         }
     } else {
         printf("Module is null!\n");

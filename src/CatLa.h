@@ -1,6 +1,6 @@
 #pragma once
 
-#include "vm/NyanVM.h"
+#include <vm/NyanVM.h>
 
 using namespace nyan;
 

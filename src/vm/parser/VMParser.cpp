@@ -1,6 +1,7 @@
 #include <vm/parser/VMParser.h>
 #include <regex>
 #include <unordered_map>
+#include <CatLa.h>
 
 using namespace std;
 using namespace parser;
@@ -17,6 +18,8 @@ VMModule* parser::parse(string name, string* code) {
 
     ConstValue* const_values = nullptr;
     size_t const_values_size = 0;
+    VMModule** imports = nullptr;
+    size_t imports_size = 0;
 
     string CONST = "$const";
     string IMPORT = "$import";
@@ -24,6 +27,7 @@ VMModule* parser::parse(string name, string* code) {
     while (current_position != code_length) {
         word.clear();
         move_until(code_str, code_length, &current_position, LINE_END, 3, &word);
+        printf("%s\n", word.c_str());
 
         current_position += 2;
         if (current_position >= code_length) {
@@ -37,10 +41,24 @@ VMModule* parser::parse(string name, string* code) {
             if (const_values == nullptr) {
                 return nullptr;
             }
+        } else if (word == IMPORT) {
+            auto array = parse_import(code_str, code_length, &current_position, const_values);
+            imports = (VMModule**) array.values;
+            imports_size = array.values_size;
+            if (imports == nullptr) {
+                return nullptr;
+            }
         }
     }
 
-    return new VMModule(const_values, const_values_size);
+    auto* module = new VMModule(std::move(name), const_values, const_values_size, imports, imports_size);
+    for (size_t i = 0; i < imports_size; i++) {
+        if (imports[i] == nullptr) {
+            imports[i] = module;
+        }
+    }
+
+    return module;
 }
 
 Array parser::parse_const(const char* code, size_t code_length, size_t* position) {
@@ -58,6 +76,7 @@ Array parser::parse_const(const char* code, size_t code_length, size_t* position
         word.clear();
         move_until(code, code_length, &cp, LINE_END, 3, &word);
         if (word == END) {
+            *position = cp;
             break;
         }
 
@@ -131,9 +150,12 @@ Array parser::parse_const(const char* code, size_t code_length, size_t* position
     for (size_t i = 0; i < values_length; i++) {
         auto* const_value_reference = const_values + i;
         if (value_map.find(i) != value_map.end()) {
-            const_value_reference->byte_size = value_map[i].byte_size;
-            const_value_reference->type = value_map[i].type;
-            const_value_reference->value_reference = value_map[i].value_reference;
+            auto* map_value_reference = &(value_map[i]);
+            const_value_reference->byte_size = map_value_reference->byte_size;
+            const_value_reference->type = map_value_reference->type;
+            const_value_reference->value_reference = map_value_reference->value_reference;
+        } else {
+            return {nullptr, 0};
         }
     }
 
@@ -141,9 +163,71 @@ Array parser::parse_const(const char* code, size_t code_length, size_t* position
 }
 
 
-Array parser::parse_import(const char *code, size_t code_length, size_t *position) {
+Array parser::parse_import(const char *code, size_t code_length, size_t *position, ConstValue* const_values) {
     size_t current_position = *position;
-    return {nullptr, 0};
+
+    regex INFO_REG(R"((\d+):(\w+)#(\d+))");
+    regex THIS_REG(R"((\d+):this)");
+    string END = "$end";
+    string CONST = "const";
+
+    unordered_map<size_t, VMModule*> module_map;
+
+    size_t max_index = 0;
+    string word;
+    while (current_position != code_length) {
+        word.clear();
+        move_until(code, code_length, &current_position, LINE_END, 3, &word);
+        if (word == END) {
+            break;
+        }
+
+        smatch results;
+        if (!regex_match(word, results, INFO_REG)) {
+            if (regex_match(word, results, THIS_REG)) {
+                size_t index = (size_t) stoi(results[1].str());
+                if (index > max_index) {
+                    max_index = index;
+                }
+
+                module_map[index] = nullptr;
+            } else {
+                return {nullptr, 0};
+            }
+        } else {
+            size_t index = (size_t) stoi(results[1].str());
+            if (index > max_index) {
+                max_index = index;
+            }
+
+            auto target = results[2].str();
+            size_t target_index = stoll(results[3].str());
+
+            VMModule* module = nullptr;
+            if (target == CONST) {
+                auto module_name = parser::get_const_value_as_string(const_values, target_index);
+                module = virtual_machine->get_module(module_name);
+            }
+
+            module_map[index] = module;
+        }
+
+        current_position++;
+    }
+
+    *position = current_position;
+
+    size_t values_length = max_index + 1;
+    auto** modules = new VMModule*[values_length];
+    for (size_t i = 0; i < values_length; i++) {
+        if (module_map.find(i) != module_map.end()) {
+            modules[i] = module_map[i];
+        } else {
+            return {nullptr, 0};
+        }
+    }
+
+    return {modules, values_length};
 }
 
 
@@ -164,4 +248,25 @@ void parser::move_until(const char* code, size_t code_length, size_t* position, 
         }
         current_position++;
     }
+}
+
+
+string parser::get_const_value_as_string(ConstValue* const_values, size_t index) {
+    auto* const_value = const_values + index;
+    char* value_reference = (char*) const_value->value_reference;
+    size_t byte_size = const_value->byte_size;
+    string str(value_reference, byte_size);
+    return str;
+}
+
+int64_t parser::get_const_value_as_int64(ConstValue *const_values, size_t index) {
+    auto* const_value = const_values + index;
+    auto* value_reference = (int64_t*) const_value->value_reference;
+    return *value_reference;
+}
+
+double parser::get_const_value_as_double(ConstValue *const_values, size_t index) {
+    auto* const_value = const_values + index;
+    auto* value_reference = (double*) const_value->value_reference;
+    return *value_reference;
 }
