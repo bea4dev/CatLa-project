@@ -79,7 +79,7 @@ void NyanVM::run(VMThread* vm_thread, size_t thread_id, CodeBlock *code_block) {
             }
 
             case opcode::heap_new : {
-                auto* class_info = (CatLaClass*) stack.top();
+                auto* class_info = (Type*) stack.top();
                 stack.pop();
                 uint8_t option = byte_code[++i];
                 bool is_arc = (option & 1) != 0;
@@ -951,13 +951,13 @@ void NyanVM::run(VMThread* vm_thread, size_t thread_id, CodeBlock *code_block) {
     printf("Stack last : %d\n", *((int32_t*)&stack.top()));
 }
 
-VMModule* NyanVM::get_module(const string& module_name) {
+Module* NyanVM::get_module(const string& module_name) {
     if (this->loaded_module_map.find(module_name) != this->loaded_module_map.end()) {
         return this->loaded_module_map[module_name];
     }
     return nullptr;
 }
 
-void NyanVM::register_module(VMModule* module) {
+void NyanVM::register_module(Module* module) {
     this->loaded_module_map[module->name] = module;
 }

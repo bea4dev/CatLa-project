@@ -10,7 +10,7 @@ typedef struct {
     atomic_flag lock_flag; //4byte
     size_t refs_length; //8byte
     size_t vals_length; //8byte
-    CatLaClass* class_info; //8byte
+    Type* class_info; //8byte
 } HeapObject;
 
 inline void object_lock(HeapObject* object) {
@@ -42,7 +42,7 @@ public:
 public:
     explicit HeapChunk(size_t cells_size);
     ~HeapChunk();
-    void* malloc(CatLaClass* class_info, size_t index, size_t block_size);
+    void* malloc(Type* class_info, size_t index, size_t block_size);
 };
 
 class GlobalHeap {
@@ -54,6 +54,6 @@ private:
 
 public:
     GlobalHeap(size_t chunks_cells_size, size_t number_of_chunks);
-    void* malloc(CatLaClass* class_info, size_t refs_length, size_t vals_length, size_t* start_index);
+    void* malloc(Type* class_info, size_t refs_length, size_t vals_length, size_t* start_index);
     void create_new_chunk(size_t cells_size);
 };

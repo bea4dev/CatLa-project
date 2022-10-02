@@ -77,7 +77,7 @@ HeapChunk::~HeapChunk() {
 }
 
 
-void* HeapChunk::malloc(CatLaClass* class_info, size_t index, size_t block_size) {
+void* HeapChunk::malloc(Type* class_info, size_t index, size_t block_size) {
     while (true) {
         auto* block_info = (this->block_info_list) + index;
 
@@ -177,7 +177,7 @@ GlobalHeap::GlobalHeap(size_t chunks_cells_size, size_t number_of_chunks) {
     #define ADDRESS_SIZE_SHIFT 3
 #endif
 
-void* GlobalHeap::malloc(CatLaClass* class_info, size_t refs_length, size_t vals_length, size_t* start_index) {
+void* GlobalHeap::malloc(Type* class_info, size_t refs_length, size_t vals_length, size_t* start_index) {
     size_t byte_size = sizeof(HeapObject) + (refs_length << ADDRESS_SIZE_SHIFT) + (vals_length << ADDRESS_SIZE_SHIFT);
 
     size_t index;

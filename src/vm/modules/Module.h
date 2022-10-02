@@ -12,14 +12,14 @@ typedef struct {
     void* value_reference;
 } ConstValue;
 
-class VMModule {
+class Module {
 public:
     string name;
     ConstValue* const_values;
     size_t const_values_size;
-    VMModule** imports;
+    Module** imports;
     size_t imports_size;
 
 public:
-    explicit VMModule(string name, ConstValue* const_values, size_t const_values_size, VMModule** imports, size_t imports_size);
+    explicit Module(string name, ConstValue* const_values, size_t const_values_size, Module** imports, size_t imports_size);
 };

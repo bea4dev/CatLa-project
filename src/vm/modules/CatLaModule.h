@@ -1,5 +1,5 @@
 #pragma once
-#include "CatLaClass.h"
+#include "Type.h"
 #include "CatLaFunction.h"
 #include "modules.h"
 

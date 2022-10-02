@@ -16,7 +16,7 @@ include_directories(${PROJECT_SOURCE_DIR}/src)
 
 add_executable(catla
         src/CatLa.cpp
-        src/vm/modules/CatLaClass.cpp
+        src/vm/modules/Type.cpp
         src/vm/modules/ClassField.cpp
         src/vm/modules/CodeBlock.cpp
         src/vm/modules/CatLaModule.cpp
@@ -27,7 +27,7 @@ add_executable(catla
         src/util/Benchmark.cpp
         src/heap/HeapAllocator.cpp
         src/vm/parser/VMParser.cpp
-        src/vm/modules/VMModule.cpp)
+        src/vm/modules/Module.cpp)
 
 llvm_map_components_to_libnames(llvm_libs
         Core

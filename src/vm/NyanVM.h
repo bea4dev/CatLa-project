@@ -3,7 +3,7 @@
 #include <vector>
 #include <mutex>
 #include <unordered_map>
-#include <vm/modules/VMModule.h>
+#include <vm/modules/Module.h>
 
 namespace heap {
     class HeapLifeManager;
@@ -36,13 +36,13 @@ namespace nyan {
     private:
         mutex threads_manage_lock;
         vector<VMThread*> threads;
-        unordered_map<string, VMModule*> loaded_module_map;
+        unordered_map<string, Module*> loaded_module_map;
 
     public:
         NyanVM();
 
         static void run(VMThread* vm_thread, size_t thread_id, CodeBlock *code_block);
-        VMModule* get_module(const string& module_name);
-        void register_module(VMModule* module);
+        Module* get_module(const string& module_name);
+        void register_module(Module* module);
     };
 }
