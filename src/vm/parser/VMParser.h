@@ -2,6 +2,7 @@
 
 #include "vm/modules/Module.h"
 #include <string>
+#include <exception>
 
 using namespace std;
 
@@ -10,7 +11,23 @@ typedef struct {
     size_t values_size;
 } Array;
 
+typedef struct {
+    size_t import_index;
+    size_t type_define_index;
+} TypeInfo;
+
 namespace parser {
+
+
+    class ParseException : std::exception {
+    public:
+        ParseException() = default;
+
+        const char* what() const noexcept override {
+            return "";
+        }
+    };
+
 
     Module* parse(string name, string* code);
 
@@ -18,7 +35,9 @@ namespace parser {
 
     Array parse_import(const char* code, size_t code_length, size_t* position, ConstValue* const_values);
 
-    Array parse_type(const char* code, size_t code_length, size_t* position, Module* modules);
+    Array parse_type_define(const char* code, size_t code_length, size_t* position, ConstValue* const_values);
+
+    vector<TypeInfo> parse_type(const char* code, size_t code_length, size_t* position, Module* modules);
 
     void move_until(const char* code, size_t code_length, size_t* position, const char* chars, size_t chars_size, string* word);
 

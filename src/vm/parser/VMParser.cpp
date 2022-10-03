@@ -24,35 +24,36 @@ Module* parser::parse(string name, string* code) {
     string CONST = "$const";
     string IMPORT = "$import";
     string line;
-    while (current_position < code_length) {
-        line.clear();
-        move_until_next_line(code_str, code_length, &current_position, &line);
 
-        if (line == CONST) {
-            auto array = parse_const(code_str, code_length, &current_position);
-            const_values = (ConstValue*) array.values;
-            const_values_size = array.values_size;
-            if (const_values == nullptr) {
-                return nullptr;
-            }
-        } else if (line == IMPORT) {
-            auto array = parse_import(code_str, code_length, &current_position, const_values);
-            imports = (Module**) array.values;
-            imports_size = array.values_size;
-            if (imports == nullptr) {
-                return nullptr;
+    try {
+        while (current_position < code_length) {
+            line.clear();
+            move_until_next_line(code_str, code_length, &current_position, &line);
+
+            if (line == CONST) {
+                auto array = parse_const(code_str, code_length, &current_position);
+                const_values = (ConstValue*) array.values;
+                const_values_size = array.values_size;
+            } else if (line == IMPORT) {
+                auto array = parse_import(code_str, code_length, &current_position, const_values);
+                imports = (Module**) array.values;
+                imports_size = array.values_size;
             }
         }
-    }
 
-    auto* module = new Module(std::move(name), const_values, const_values_size, imports, imports_size);
-    for (size_t i = 0; i < imports_size; i++) {
-        if (imports[i] == nullptr) {
-            imports[i] = module;
+        auto *module = new Module(std::move(name), const_values, const_values_size, imports, imports_size);
+        for (size_t i = 0; i < imports_size; i++) {
+            if (imports[i] == nullptr) {
+                imports[i] = module;
+            }
         }
+
+        return module;
+    } catch (const ParseException& e) {
+        printf("Parse exception!\n");
     }
 
-    return module;
+    return nullptr;
 }
 
 Array parser::parse_const(const char* code, size_t code_length, size_t* position) {
@@ -79,7 +80,7 @@ Array parser::parse_const(const char* code, size_t code_length, size_t* position
 
         smatch results;
         if (!regex_match(line, results, INFO_REG)) {
-            return {nullptr, 0};
+            throw ParseException();
         } else {
             size_t index = stoull(results[1].str());
             if (index > max_index) {
@@ -89,13 +90,13 @@ Array parser::parse_const(const char* code, size_t code_length, size_t* position
             size_t byte_size = stoull(results[2].str());
             auto type_str = results[3].str();
             if (type_str.size() != 1) {
-                return {nullptr, 0};
+                throw ParseException();
             }
             char type = type_str.c_str()[0];
 
             current_position++;
             if (current_position >= code_length) {
-                return {nullptr, 0};
+                throw ParseException();
             }
 
             line.clear();
@@ -126,7 +127,7 @@ Array parser::parse_const(const char* code, size_t code_length, size_t* position
                     break;
                 }
                 default: {
-                    return {nullptr, 0};
+                    throw ParseException();
                 }
             }
 
@@ -140,7 +141,7 @@ Array parser::parse_const(const char* code, size_t code_length, size_t* position
     *position = current_position;
 
     if (value_map.empty()) {
-        //TODO
+        return {nullptr, 0};
     }
 
     size_t values_length = max_index + 1;
@@ -153,7 +154,7 @@ Array parser::parse_const(const char* code, size_t code_length, size_t* position
             const_value_reference->type = map_value_reference->type;
             const_value_reference->value_reference = map_value_reference->value_reference;
         } else {
-            return {nullptr, 0};
+            throw ParseException();
         }
     }
 
@@ -190,7 +191,7 @@ Array parser::parse_import(const char *code, size_t code_length, size_t *positio
 
                 module_map[index] = nullptr;
             } else {
-                return {nullptr, 0};
+                throw ParseException();
             }
         } else {
             size_t index = stoull(results[1].str());
@@ -214,7 +215,7 @@ Array parser::parse_import(const char *code, size_t code_length, size_t *positio
     *position = current_position;
 
     if (module_map.empty()) {
-        //TODO
+        return {nullptr, 0};
     }
 
     size_t values_length = max_index + 1;
@@ -223,7 +224,7 @@ Array parser::parse_import(const char *code, size_t code_length, size_t *positio
         if (module_map.find(i) != module_map.end()) {
             modules[i] = module_map[i];
         } else {
-            return {nullptr, 0};
+            throw ParseException();
         }
     }
 
@@ -231,11 +232,12 @@ Array parser::parse_import(const char *code, size_t code_length, size_t *positio
 }
 
 
-Array parser::parse_type(const char* code, size_t code_length, size_t* position, Module* modules) {
+Array parser::parse_type_define(const char *code, size_t code_length, size_t *position, ConstValue* const_values) {
     size_t current_position = *position;
 
-    regex INFO_REG(R"((\d+):(\d+):(\d+))");
+    regex INFO_REG(R"((\d+):(\d+):(\d+):(\d+):\(\w+\))");
     string END = "$end";
+    string CONST = "const";
 
     unordered_map<size_t, Type*> type_map;
 
@@ -250,24 +252,28 @@ Array parser::parse_type(const char* code, size_t code_length, size_t* position,
 
         smatch results;
         if (!regex_match(line, results, INFO_REG)) {
-            return {nullptr, 0};
+            throw ParseException();
         } else {
             size_t index = stoull(results[1].str());
             if (index > max_index) {
                 max_index = index;
             }
 
-            size_t import_index = stoull(results[2].str());
-            size_t type_index = stoull(results[3].str());
+            auto name = parser::get_const_value_as_string(const_values, stoull(results[2].str()));
+            size_t refs_length = stoull(results[3].str());
+            size_t vals_length = stoull(results[4].str());
 
-            type_map[index] = nullptr;
+            vector<TypeInfo> parent_infos;
+
+            auto* type = new Type(name, 0, refs_length, vals_length, parent_infos);
+            type_map[index] = type;
         }
     }
 
     *position = current_position;
 
     if (type_map.empty()) {
-        //TODO
+        return {nullptr, 0};
     }
 
     size_t values_length = max_index + 1;
@@ -276,11 +282,64 @@ Array parser::parse_type(const char* code, size_t code_length, size_t* position,
         if (type_map.find(i) != type_map.end()) {
             types[i] = type_map[i];
         } else {
-            return {nullptr, 0};
+            throw ParseException();
         }
     }
 
     return {types, values_length};
+}
+
+
+vector<TypeInfo> parser::parse_type(const char* code, size_t code_length, size_t* position, Module* modules) {
+    size_t current_position = *position;
+
+    regex INFO_REG(R"((\d+):(\d+):(\d+))");
+    string END = "$end";
+
+    unordered_map<size_t, TypeInfo> type_map;
+
+    size_t max_index = 0;
+    string line;
+    while (current_position != code_length) {
+        line.clear();
+        move_until_next_line(code, code_length, &current_position, &line);
+        if (line == END) {
+            break;
+        }
+
+        smatch results;
+        if (!regex_match(line, results, INFO_REG)) {
+            return {};
+        } else {
+            size_t index = stoull(results[1].str());
+            if (index > max_index) {
+                max_index = index;
+            }
+
+            size_t import_index = stoull(results[2].str());
+            size_t type_define_index = stoull(results[3].str());
+
+            type_map[index] = {import_index, type_define_index};
+        }
+    }
+
+    *position = current_position;
+
+    if (type_map.empty()) {
+        return {};
+    }
+
+    size_t values_length = max_index + 1;
+    vector<TypeInfo> type_infos(values_length);
+    for (size_t i = 0; i < values_length; i++) {
+        if (type_map.find(i) != type_map.end()) {
+            type_infos[i] = type_map[i];
+        } else {
+            throw ParseException();
+        }
+    }
+
+    return type_infos;
 }
 
 
