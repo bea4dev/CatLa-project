@@ -4,6 +4,7 @@
 #include <mutex>
 #include <unordered_map>
 #include <vm/modules/Module.h>
+#include <vm/modules/Function.h>
 
 namespace heap {
     class HeapLifeManager;
@@ -41,7 +42,7 @@ namespace nyan {
     public:
         NyanVM();
 
-        static void run(VMThread* vm_thread, size_t thread_id, CodeBlock *code_block);
+        static void run(VMThread* vm_thread, size_t thread_id, Module* module, Function* function);
         Module* get_module(const string& module_name);
         void register_module(Module* module);
     };
