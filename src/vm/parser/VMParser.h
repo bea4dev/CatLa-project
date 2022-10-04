@@ -6,16 +6,6 @@
 
 using namespace std;
 
-typedef struct {
-    void* values;
-    size_t values_size;
-} Array;
-
-typedef struct {
-    size_t import_index;
-    size_t type_define_index;
-} TypeInfo;
-
 namespace parser {
 
 
@@ -33,11 +23,11 @@ namespace parser {
 
     Array parse_const(const char* code, size_t code_length, size_t* position);
 
-    Array parse_import(const char* code, size_t code_length, size_t* position, ConstValue* const_values);
+    vector<string> parse_import(const string& module_name, const char* code, size_t code_length, size_t* position, ConstValue* const_values);
 
     Array parse_type_define(const char* code, size_t code_length, size_t* position, ConstValue* const_values);
 
-    vector<TypeInfo> parse_type(const char* code, size_t code_length, size_t* position, Module* modules);
+    vector<TypeInfo> parse_type(const char* code, size_t code_length, size_t* position);
 
     void move_until(const char* code, size_t code_length, size_t* position, const char* chars, size_t chars_size, string* word);
 

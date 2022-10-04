@@ -2,13 +2,14 @@
 #include <regex>
 #include <unordered_map>
 #include <CatLa.h>
+#include <vm/modules/Type.h>
+#include <vm/parser/Structs.h>
 
 using namespace std;
 using namespace parser;
+using namespace modules;
 
-const char CATEGORY_DEFINE_END[] = ";\n\0";
 const char HASH_MARK[] = "#\n\0";
-const char LINE_END[] = "\n\0";
 
 
 Module* parser::parse(string name, string* code) {
@@ -18,11 +19,15 @@ Module* parser::parse(string name, string* code) {
 
     ConstValue* const_values = nullptr;
     size_t const_values_size = 0;
-    Module** imports = nullptr;
-    size_t imports_size = 0;
+    vector<string> import_module_names;
+    Type** type_defines = nullptr;
+    size_t type_defines_size = 0;
+    vector<TypeInfo> using_types;
 
     string CONST = "$const";
     string IMPORT = "$import";
+    string TYPE_DEF = "$typedef";
+    string TYPE = "$type";
     string line;
 
     try {
@@ -35,18 +40,17 @@ Module* parser::parse(string name, string* code) {
                 const_values = (ConstValue*) array.values;
                 const_values_size = array.values_size;
             } else if (line == IMPORT) {
-                auto array = parse_import(code_str, code_length, &current_position, const_values);
-                imports = (Module**) array.values;
-                imports_size = array.values_size;
+                import_module_names = parse_import(name, code_str, code_length, &current_position, const_values);
+            } else if (line == TYPE_DEF) {
+                auto array = parse_type_define(code_str, code_length, &current_position, const_values);
+                type_defines = (Type**) array.values;
+                type_defines_size = array.values_size;
+            } else if (line == TYPE) {
+                using_types = parse_type(code_str, code_length, &current_position);
             }
         }
 
-        auto *module = new Module(std::move(name), const_values, const_values_size, imports, imports_size);
-        for (size_t i = 0; i < imports_size; i++) {
-            if (imports[i] == nullptr) {
-                imports[i] = module;
-            }
-        }
+        auto* module = new Module(name, const_values, const_values_size, std::move(import_module_names), type_defines, type_defines_size, std::move(using_types));
 
         return module;
     } catch (const ParseException& e) {
@@ -162,7 +166,7 @@ Array parser::parse_const(const char* code, size_t code_length, size_t* position
 }
 
 
-Array parser::parse_import(const char *code, size_t code_length, size_t *position, ConstValue* const_values) {
+vector<string> parser::parse_import(const string& module_name, const char *code, size_t code_length, size_t *position, ConstValue* const_values) {
     size_t current_position = *position;
 
     regex INFO_REG(R"((\d+):(\w+)#(\d+))");
@@ -170,7 +174,7 @@ Array parser::parse_import(const char *code, size_t code_length, size_t *positio
     string END = "$end";
     string CONST = "const";
 
-    unordered_map<size_t, Module*> module_map;
+    unordered_map<size_t, string> module_map;
 
     size_t max_index = 0;
     string line;
@@ -189,7 +193,7 @@ Array parser::parse_import(const char *code, size_t code_length, size_t *positio
                     max_index = index;
                 }
 
-                module_map[index] = nullptr;
+                module_map[index] = module_name;
             } else {
                 throw ParseException();
             }
@@ -202,10 +206,9 @@ Array parser::parse_import(const char *code, size_t code_length, size_t *positio
             auto target = results[2].str();
             size_t target_index = stoull(results[3].str());
 
-            Module* module = nullptr;
+            string module;
             if (target == CONST) {
-                auto module_name = parser::get_const_value_as_string(const_values, target_index);
-                module = virtual_machine->get_module(module_name);
+                module = parser::get_const_value_as_string(const_values, target_index);
             }
 
             module_map[index] = module;
@@ -215,27 +218,29 @@ Array parser::parse_import(const char *code, size_t code_length, size_t *positio
     *position = current_position;
 
     if (module_map.empty()) {
-        return {nullptr, 0};
+        return {};
     }
 
     size_t values_length = max_index + 1;
-    auto** modules = new Module*[values_length];
+    vector<string> module_names(values_length);
     for (size_t i = 0; i < values_length; i++) {
         if (module_map.find(i) != module_map.end()) {
-            modules[i] = module_map[i];
+            module_names[i] = module_map[i];
         } else {
             throw ParseException();
         }
     }
 
-    return {modules, values_length};
+    return module_names;
 }
 
 
 Array parser::parse_type_define(const char *code, size_t code_length, size_t *position, ConstValue* const_values) {
     size_t current_position = *position;
 
-    regex INFO_REG(R"((\d+):(\d+):(\d+):(\d+):\(\w+\))");
+    regex INFO_REG(R"((\d+):(\d+):(\d+):(\d+):\((.*)\))");
+    regex EXTENDS_SEPARATE{","};
+    regex EXTENDS_INFO(R"((\d+):(\d+))");
     string END = "$end";
     string CONST = "const";
 
@@ -263,7 +268,25 @@ Array parser::parse_type_define(const char *code, size_t code_length, size_t *po
             size_t refs_length = stoull(results[3].str());
             size_t vals_length = stoull(results[4].str());
 
+
             vector<TypeInfo> parent_infos;
+
+            auto extends = results[5].str();
+            auto extends_iterator = sregex_token_iterator(extends.begin(), extends.end(), EXTENDS_SEPARATE, -1);
+            auto end = sregex_token_iterator();
+            while (extends_iterator != end) {
+                auto type_string = (*extends_iterator++).str();
+
+                smatch type_result;
+                if (!regex_match(type_string, type_result, EXTENDS_INFO)) {
+                    throw ParseException();
+                } else {
+                    size_t import_index = stoull(type_result[1].str());
+                    size_t type_define_index = stoull(type_result[2].str());
+
+                    parent_infos.push_back({import_index, type_define_index});
+                }
+            }
 
             auto* type = new Type(name, 0, refs_length, vals_length, parent_infos);
             type_map[index] = type;
@@ -290,7 +313,7 @@ Array parser::parse_type_define(const char *code, size_t code_length, size_t *po
 }
 
 
-vector<TypeInfo> parser::parse_type(const char* code, size_t code_length, size_t* position, Module* modules) {
+vector<TypeInfo> parser::parse_type(const char* code, size_t code_length, size_t* position) {
     size_t current_position = *position;
 
     regex INFO_REG(R"((\d+):(\d+):(\d+))");

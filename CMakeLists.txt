@@ -27,7 +27,11 @@ add_executable(catla
         src/util/Benchmark.cpp
         src/heap/HeapAllocator.cpp
         src/vm/parser/VMParser.cpp
-        src/vm/modules/Module.cpp)
+        src/vm/modules/Module.cpp
+        src/vm/modules/Function.cpp
+        src/vm/modules/orders/Order.cpp
+        src/vm/modules/orders/GetConst.cpp
+        src/vm/modules/orders/Add.cpp src/vm/modules/orders/Orders.h)
 
 llvm_map_components_to_libnames(llvm_libs
         Core

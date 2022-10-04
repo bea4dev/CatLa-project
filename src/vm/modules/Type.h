@@ -2,15 +2,17 @@
 
 #include <string>
 #include <cstdint>
-#include <vm/modules/Module.h>
-#include <vm/parser/VMParser.h>
+#include <vector>
+#include <vm/parser/Structs.h>
+
+using namespace std;
 
 namespace modules {
 
     class Type {
 
     public:
-        Module* module;
+        void* module;
         std::string type_name;
         size_t runtime_type_id;
         size_t refs_length;

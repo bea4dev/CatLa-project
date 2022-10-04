@@ -148,9 +148,6 @@ int main()
 
     printf("%llu[ms]\n", timing.get_sum_time());
 
-    auto* dummy_module = new Module("nyan", nullptr, 0, nullptr, 0);
-    virtual_machine->register_module(dummy_module);
-
     string vm_code = u8"$const\n"
                      "  0:4:s#nyan\n"
                      "  1:13:s#catla::system\n"
@@ -160,10 +157,22 @@ int main()
                      "  5:12:s#Hello world!\n"
                      "  6:4:i#-128\n"
                      "  7:4:f#3.14\n"
+                     "  8:9:s#TestClass\n"
                      "$end\n"
+                     "\n"
                      "$import\n"
                      "  0:this\n"
-                     "  1:const#0\n"
+                     "  1:const#1\n"
+                     "  2:const#2\n"
+                     "  3:const#3\n"
+                     "$end\n"
+                     "\n"
+                     "$typedef\n"
+                     "  0:8:2:0:(0:1)\n"
+                     "$end\n"
+                     "\n"
+                     "$type\n"
+                     "  0:2:0\n"
                      "$end";
     auto* module = parser::parse("test", &vm_code);
     if (module != nullptr) {
@@ -205,15 +214,25 @@ int main()
             printf("Const values is null!\n");
         }
 
-        auto** imports = module->imports;
-        if (imports != nullptr) {
-            size_t imports_size = module->imports_size;
-            for (size_t s = 0; s < imports_size; s++) {
-                auto *mod = imports[s];
-                printf("import : %s\n", mod->name.c_str());
+        auto import_module_names = module->import_module_names;
+        for (auto& import_module_name : import_module_names) {
+            printf("module : %s\n", import_module_name.c_str());
+        }
+
+        auto** type_defines = module->type_defines;
+        size_t type_defines_size = module->type_defines_size;
+        if (type_defines != nullptr) {
+            for (size_t s = 0; s < type_defines_size; s++) {
+                auto* type = type_defines[s];
+                printf("type define : %s %llu %llu\n", type->type_name.c_str(), type->refs_length, type->vals_length);
             }
         } else {
-            printf("IMPORTS NULL!\n");
+            printf("Type defines is null!\n");
+        }
+
+        auto using_type_infos = module->using_type_infos;
+        for (auto& type_info : using_type_infos) {
+            printf("using type : %llu %llu\n", type_info.import_index, type_info.type_define_index);
         }
     } else {
         printf("Module is null!\n");
