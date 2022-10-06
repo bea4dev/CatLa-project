@@ -1,7 +1,7 @@
 #pragma once
 
-#include <vm/NyanVM.h>
+#include <vm/CatVM.h>
 
-using namespace nyan;
+using namespace catla;
 
-extern NyanVM* virtual_machine;
+extern CatVM* virtual_machine;

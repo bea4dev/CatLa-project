@@ -8,5 +8,5 @@ private:
 
 public:
     GetConstI64(size_t result_register, size_t const_index);
-    void eval(void *module, uint64_t* registers, uint64_t* variables) override;
+    void eval(void* vm_thread, void *module, uint64_t* registers, uint64_t* variables) override;
 };

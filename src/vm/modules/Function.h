@@ -13,13 +13,20 @@ public:
     string name;
     vector<Order*> orders;
 
+public:
+    LabelBlock(string name, vector<Order*> orders);
+
 };
 
 class Function {
 public:
     string name;
+    size_t variables_size;
+    size_t registers_size;
     vector<LabelBlock*> label_blocks;
-    unordered_map<string, LabelBlock*> label_block_map;
+
+public:
+    Function(string name, size_t variables_size, size_t registers_size, vector<LabelBlock*> label_blocks);
 
 };
 

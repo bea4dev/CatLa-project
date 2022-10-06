@@ -21,7 +21,7 @@ add_executable(catla
         src/vm/modules/CodeBlock.cpp
         src/vm/modules/CatLaModule.cpp
         src/vm/modules/CatLaFunction.cpp
-        src/vm/NyanVM.cpp
+        src/vm/CatVM.cpp
         src/util/Concurrent.h
         src/vm/stack/stack.cpp
         src/util/Benchmark.cpp
@@ -31,7 +31,7 @@ add_executable(catla
         src/vm/modules/Function.cpp
         src/vm/modules/orders/Order.cpp
         src/vm/modules/orders/GetConst.cpp
-        src/vm/modules/orders/Add.cpp src/vm/modules/orders/Orders.h)
+        src/vm/modules/orders/Add.cpp src/vm/modules/orders/Orders.h src/vm/modules/orders/Jump.cpp src/vm/modules/orders/Jump.h src/vm/PrimitiveType.h)
 
 llvm_map_components_to_libnames(llvm_libs
         Core

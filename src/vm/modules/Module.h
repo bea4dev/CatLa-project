@@ -10,7 +10,7 @@ using namespace modules;
 
 typedef struct {
     size_t byte_size;
-    char type;
+    uint8_t type;
     void* value_reference;
 } ConstValue;
 

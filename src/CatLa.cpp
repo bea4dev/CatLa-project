@@ -1,7 +1,7 @@
 ﻿#include <iostream>
 #include "CatLa.h"
 #include <random>
-#include "vm/Opcode.h"
+#include <vm/PrimitiveType.h>
 #include <thread>
 #include <vm/stack/stack.h>
 #include <pthread.h>
@@ -16,10 +16,10 @@
 #include <util/StringUtil.h>
 #include <vm/parser/VMParser.h>
 
-NyanVM* virtual_machine = nullptr;
+CatVM* virtual_machine = nullptr;
 
 void setup_virtual_machine() {
-    virtual_machine = new NyanVM();
+    virtual_machine = new CatVM();
     reserved_threads = (size_t) thread::hardware_concurrency();
 }
 
@@ -158,6 +158,8 @@ int main()
                      "  6:4:i#-128\n"
                      "  7:4:f#3.14\n"
                      "  8:9:s#TestClass\n"
+                     "  9:2:i#32\n"
+                     "  10:2:i#42\n"
                      "$end\n"
                      "\n"
                      "$import\n"
@@ -237,6 +239,19 @@ int main()
     } else {
         printf("Module is null!\n");
     }
+
+    vector<Order*> orders1;
+    orders1.push_back(new GetConstI64(0, 6));
+    orders1.push_back(new GetConstI64(1, 9));
+    orders1.push_back(new AddI64(2, 0, 1));
+
+    vector<LabelBlock*> label_blocks;
+    label_blocks.push_back(new LabelBlock("entry", orders1));
+
+    auto* vm_thread = catla::create_thread(1024);
+
+    auto* function = new Function("test", 0, 3, label_blocks);
+    catla::CatVM::run(vm_thread, module, function);
 
 
     std::cout << "Complete!\n";

@@ -14,25 +14,24 @@ using namespace heap;
 using namespace std;
 using namespace modules;
 
-namespace nyan {
+namespace catla {
 
     extern atomic_size_t thread_ids;
     extern size_t reserved_threads;
 
-    class VMThread {
-
-    public:
+    typedef struct {
         size_t thread_id;
         size_t stack_size;
         size_t top_of_stack_address;
+        Function* current_function;
+        LabelBlock* current_label_block;
+        size_t current_order_index;
+    } VMThread;
 
-    public:
-        explicit VMThread(size_t stack_size);
-        ~VMThread();
-    };
+    VMThread* create_thread(size_t stack_size);
 
 
-    class NyanVM {
+    class CatVM {
 
     private:
         mutex threads_manage_lock;
@@ -40,9 +39,9 @@ namespace nyan {
         unordered_map<string, Module*> loaded_module_map;
 
     public:
-        NyanVM();
+        CatVM();
 
-        static void run(VMThread* vm_thread, size_t thread_id, Module* module, Function* function);
+        static void run(VMThread* vm_thread, Module* module, Function* function);
         Module* get_module(const string& module_name);
         void register_module(Module* module);
     };
