@@ -15,10 +15,12 @@
 #include <regex>
 #include <util/StringUtil.h>
 #include <vm/parser/VMParser.h>
+#include <vm/PrimitiveType.h>
 
 CatVM* virtual_machine = nullptr;
 
 void setup_virtual_machine() {
+    type::setup_primitive_types();
     virtual_machine = new CatVM();
     reserved_threads = (size_t) thread::hardware_concurrency();
 }

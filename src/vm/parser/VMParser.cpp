@@ -4,10 +4,12 @@
 #include <CatLa.h>
 #include <vm/modules/Type.h>
 #include <vm/parser/Structs.h>
+#include <vm/PrimitiveType.h>
 
 using namespace std;
 using namespace parser;
 using namespace modules;
+using namespace type;
 
 const char HASH_MARK[] = "#\n\0";
 
@@ -332,7 +334,7 @@ vector<TypeInfo> parser::parse_type(const char* code, size_t code_length, size_t
 
         smatch results;
         if (!regex_match(line, results, INFO_REG)) {
-            return {};
+            throw ParseException();
         } else {
             size_t index = stoull(results[1].str());
             if (index > max_index) {
@@ -363,6 +365,89 @@ vector<TypeInfo> parser::parse_type(const char* code, size_t code_length, size_t
     }
 
     return type_infos;
+}
+
+
+vector<Function*> parser::parse_function(const char* code, size_t code_length, size_t* position, ConstValue* const_values) {
+    size_t current_position = *position;
+
+    regex INFO_REG(R"((\d+):(\d+):var:(\d+):reg:(\d+)\((\w*)\)->(\w+){)");
+    regex ARGS_SEPARATE{","};
+    regex ARGS_INFO(R"((\d+):(\w+))");
+    string END = "$end";
+
+    unordered_map<size_t, Function*> function_map;
+    unordered_map<size_t, PrimitiveType*> arg_map;
+
+    size_t max_index = 0;
+    string line;
+    while (current_position != code_length) {
+        line.clear();
+        move_until_next_line(code, code_length, &current_position, &line);
+        if (line == END) {
+            break;
+        }
+
+        smatch results;
+        if (!regex_match(line, results, INFO_REG)) {
+            throw ParseException();
+        } else {
+            size_t index = stoull(results[1].str());
+            if (index > max_index) {
+                max_index = index;
+            }
+
+            string name = parser::get_const_value_as_string(const_values, stoull(results[2].str()));
+            size_t variables_size = stoull(results[3].str());
+            size_t registers_size = stoull(results[4].str());
+
+            string args_str = results[5].str();
+
+            auto args_iterator = sregex_token_iterator(args_str.begin(), args_str.end(), ARGS_SEPARATE, -1);
+            auto end = sregex_token_iterator();
+            while (args_iterator != end) {
+                auto arg = (*args_iterator++).str();
+
+                smatch arg_result;
+                if (!regex_match(arg, arg_result, ARGS_INFO)) {
+                    throw ParseException();
+                } else {
+                    size_t arg_index = stoull(arg_result[1].str());
+                    auto* type = parser::parse_primitive_type(arg_result[2].str().c_str());
+                    arg_map[arg_index] = type;
+                }
+            }
+
+        }
+    }
+
+    *position = current_position;
+/*
+    if (type_map.empty()) {
+        return {};
+    }
+
+    size_t values_length = max_index + 1;
+    vector<TypeInfo> type_infos(values_length);
+    for (size_t i = 0; i < values_length; i++) {
+        if (type_map.find(i) != type_map.end()) {
+            type_infos[i] = type_map[i];
+        } else {
+            throw ParseException();
+        }
+    }
+
+    return type_infos;*/return {};
+}
+
+
+vector<LabelBlock*> parser::parse_label_block(const char* code, size_t code_length, size_t* position) {
+
+}
+
+
+vector<Order *> parser::parse_order(const char *code, size_t code_length, size_t *position) {
+
 }
 
 
@@ -424,4 +509,13 @@ double parser::get_const_value_as_double(ConstValue *const_values, size_t index)
     auto* const_value = const_values + index;
     auto* value_reference = (double*) const_value->value_reference;
     return *value_reference;
+}
+
+PrimitiveType* parser::parse_primitive_type(const char* type) {
+    for (auto &it : *type::all_types) {
+        if (strcmp(it->name, type) == 0) {
+            return it;
+        }
+    }
+    throw ParseException();
 }

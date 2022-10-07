@@ -1,10 +1,13 @@
 #pragma once
 
-#include "vm/modules/Module.h"
+#include <vm/modules/Module.h>
+#include <vm/modules/Function.h>
+#include <vm/PrimitiveType.h>
 #include <string>
 #include <exception>
 
 using namespace std;
+using namespace type;
 
 namespace parser {
 
@@ -29,6 +32,12 @@ namespace parser {
 
     vector<TypeInfo> parse_type(const char* code, size_t code_length, size_t* position);
 
+    vector<Function*> parse_function(const char* code, size_t code_length, size_t* position, ConstValue* const_values);
+
+    vector<LabelBlock*> parse_label_block(const char* code, size_t code_length, size_t* position);
+
+    vector<Order*> parse_order(const char* code, size_t code_length, size_t* position);
+
     void move_until(const char* code, size_t code_length, size_t* position, const char* chars, size_t chars_size, string* word);
 
     void move_until_next_line(const char* code, size_t code_length, size_t* position, string* line);
@@ -38,5 +47,7 @@ namespace parser {
     int64_t get_const_value_as_int64(ConstValue* const_values, size_t index);
 
     double get_const_value_as_double(ConstValue* const_values, size_t index);
+
+    PrimitiveType* parse_primitive_type(const char* type);
 
 }

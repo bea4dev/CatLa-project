@@ -1,19 +1,32 @@
 #pragma once
 
-#include <cstdint>
+#include <string>
+#include <vector>
 
-namespace catla {
+using namespace std;
 
-    enum primitive_type : uint8_t {
-        i8,
-        i16,
-        i32,
-        i64,
-        u8,
-        u16,
-        u32,
-        u64,
-        ref,
-    };
+namespace type {
+
+    typedef struct {
+        uint8_t id;
+        const char* name;
+    } PrimitiveType;
+
+
+    extern vector<PrimitiveType*>* all_types;
+
+    extern PrimitiveType* i8;
+    extern PrimitiveType* i16;
+    extern PrimitiveType* i32;
+    extern PrimitiveType* i64;
+    extern PrimitiveType* u8;
+    extern PrimitiveType* u16;
+    extern PrimitiveType* u32;
+    extern PrimitiveType* u64;
+    extern PrimitiveType* ref;
+
+    extern PrimitiveType* create(uint8_t id, const char* name);
+
+    extern void setup_primitive_types();
 
 }
