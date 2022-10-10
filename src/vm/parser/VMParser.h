@@ -34,9 +34,9 @@ namespace parser {
 
     vector<Function*> parse_function(const char* code, size_t code_length, size_t* position, ConstValue* const_values);
 
-    vector<LabelBlock*> parse_label_block(const char* code, size_t code_length, size_t* position);
+    vector<LabelBlock*> parse_label_blocks(const char* code, size_t code_length, size_t* position);
 
-    vector<Order*> parse_order(const char* code, size_t code_length, size_t* position);
+    vector<Order*> parse_orders(const char* code, size_t code_length, size_t* position);
 
     void move_until(const char* code, size_t code_length, size_t* position, const char* chars, size_t chars_size, string* word);
 

@@ -81,6 +81,11 @@ Array parser::parse_const(const char* code, size_t code_length, size_t* position
             break;
         }
 
+        if (line.empty()) {
+            current_position = cp;
+            continue;
+        }
+
         line.clear();
         move_until(code, code_length, &current_position, HASH_MARK, 3, &line);
 
@@ -187,6 +192,10 @@ vector<string> parser::parse_import(const string& module_name, const char *code,
             break;
         }
 
+        if (line.empty()) {
+            continue;
+        }
+
         smatch results;
         if (!regex_match(line, results, INFO_REG)) {
             if (regex_match(line, results, THIS_REG)) {
@@ -255,6 +264,10 @@ Array parser::parse_type_define(const char *code, size_t code_length, size_t *po
         move_until_next_line(code, code_length, &current_position, &line);
         if (line == END) {
             break;
+        }
+
+        if (line.empty()) {
+            continue;
         }
 
         smatch results;
@@ -332,6 +345,10 @@ vector<TypeInfo> parser::parse_type(const char* code, size_t code_length, size_t
             break;
         }
 
+        if (line.empty()) {
+            continue;
+        }
+
         smatch results;
         if (!regex_match(line, results, INFO_REG)) {
             throw ParseException();
@@ -388,6 +405,10 @@ vector<Function*> parser::parse_function(const char* code, size_t code_length, s
             break;
         }
 
+        if (line.empty()) {
+            continue;
+        }
+
         smatch results;
         if (!regex_match(line, results, INFO_REG)) {
             throw ParseException();
@@ -441,13 +462,78 @@ vector<Function*> parser::parse_function(const char* code, size_t code_length, s
 }
 
 
-vector<LabelBlock*> parser::parse_label_block(const char* code, size_t code_length, size_t* position) {
+vector<LabelBlock*> parser::parse_label_blocks(const char* code, size_t code_length, size_t* position) {
+    size_t current_position = *position;
 
+    regex INFO_REG(R"(label:(\w+))");
+    string END = "}";
+
+    vector<LabelBlock*> label_blocks;
+
+    size_t max_index = 0;
+    string line;
+    while (current_position != code_length) {
+        line.clear();
+        move_until_next_line(code, code_length, &current_position, &line);
+        if (line == END) {
+            break;
+        }
+
+        if (line.empty()) {
+            continue;
+        }
+
+        smatch results;
+        if (!regex_match(line, results, INFO_REG)) {
+            throw ParseException();
+        } else {
+            auto label_name = results[1].str();
+            auto orders = parser::parse_orders(code, code_length, &current_position);
+
+            label_blocks.push_back(new LabelBlock(label_name, orders));
+        }
+    }
+
+    *position = current_position;
+
+    return label_blocks;
 }
 
 
-vector<Order *> parser::parse_order(const char *code, size_t code_length, size_t *position) {
+vector<Order*> parser::parse_orders(const char* code, size_t code_length, size_t* position) {
+    size_t current_position = *position;
 
+    regex ASSIGNMENT_REG(R"((\w+)=(\w+))");
+    regex ARGS_SEPARATE{","};
+    string END = "label:end";
+
+    vector<Order*> orders;
+
+    size_t max_index = 0;
+    string line;
+    while (current_position != code_length) {
+        line.clear();
+        move_until_next_line(code, code_length, &current_position, &line);
+        if (line == END) {
+            break;
+        }
+
+        if (line.empty()) {
+            continue;
+        }
+
+        smatch results;
+        if (regex_match(line, results, ASSIGNMENT_REG)) {
+            auto assignment_register = results[1].str();
+            auto order = results[2].str();
+
+
+        }
+    }
+
+    *position = current_position;
+
+    return orders;
 }
 
 
