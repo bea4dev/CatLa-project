@@ -25,11 +25,13 @@ Module* parser::parse(string name, string* code) {
     Type** type_defines = nullptr;
     size_t type_defines_size = 0;
     vector<TypeInfo> using_types;
+    vector<Function*> functions;
 
     string CONST = "$const";
     string IMPORT = "$import";
     string TYPE_DEF = "$typedef";
     string TYPE = "$type";
+    string FUNCTION = "$function";
     string line;
 
     try {
@@ -49,10 +51,12 @@ Module* parser::parse(string name, string* code) {
                 type_defines_size = array.values_size;
             } else if (line == TYPE) {
                 using_types = parse_type(code_str, code_length, &current_position);
+            } else if (line == FUNCTION) {
+                functions = parse_function(code_str, code_length, &current_position, const_values);
             }
         }
 
-        auto* module = new Module(name, const_values, const_values_size, std::move(import_module_names), type_defines, type_defines_size, std::move(using_types));
+        auto* module = new Module(name, const_values, const_values_size, std::move(import_module_names), type_defines, type_defines_size, std::move(using_types), std::move(functions));
 
         return module;
     } catch (const ParseException& e) {
@@ -388,13 +392,12 @@ vector<TypeInfo> parser::parse_type(const char* code, size_t code_length, size_t
 vector<Function*> parser::parse_function(const char* code, size_t code_length, size_t* position, ConstValue* const_values) {
     size_t current_position = *position;
 
-    regex INFO_REG(R"((\d+):(\d+):var:(\d+):reg:(\d+)\((\w*)\)->(\w+){)");
+    regex INFO_REG(R"((\d+):(\d+):var:(\d+):reg:(\d+)\((.*)\)->(\w+)\{)");
     regex ARGS_SEPARATE{","};
     regex ARGS_INFO(R"((\d+):(\w+))");
     string END = "$end";
 
     unordered_map<size_t, Function*> function_map;
-    unordered_map<size_t, PrimitiveType*> arg_map;
 
     size_t max_index = 0;
     string line;
@@ -424,41 +427,68 @@ vector<Function*> parser::parse_function(const char* code, size_t code_length, s
 
             string args_str = results[5].str();
 
+            unordered_map<size_t, PrimitiveType*> arg_map;
             auto args_iterator = sregex_token_iterator(args_str.begin(), args_str.end(), ARGS_SEPARATE, -1);
             auto end = sregex_token_iterator();
+            size_t max_arg_index = 0;
+
             while (args_iterator != end) {
                 auto arg = (*args_iterator++).str();
 
                 smatch arg_result;
                 if (!regex_match(arg, arg_result, ARGS_INFO)) {
+                    if (arg.empty()) {
+                        break;
+                    }
                     throw ParseException();
                 } else {
                     size_t arg_index = stoull(arg_result[1].str());
                     auto* type = parser::parse_primitive_type(arg_result[2].str().c_str());
                     arg_map[arg_index] = type;
+
+                    if (arg_index > max_arg_index) {
+                        max_arg_index = arg_index;
+                    }
                 }
             }
 
+            auto return_type = parser::parse_primitive_type(results[6].str().c_str());
+
+            if (!arg_map.empty()) {
+                max_arg_index += 1;
+            }
+            vector<PrimitiveType*> argument_types(max_arg_index);
+            for (size_t i = 0; i < max_arg_index; i++) {
+                if (arg_map.find(i) != arg_map.end()) {
+                    argument_types[i] = arg_map[i];
+                } else {
+                    throw ParseException();
+                }
+            }
+
+            auto label_blocks = parser::parse_label_blocks(code, code_length, &current_position);
+
+            function_map[index] = new Function(name, variables_size, registers_size, label_blocks, return_type, argument_types);
         }
     }
 
     *position = current_position;
-/*
-    if (type_map.empty()) {
+
+    if (function_map.empty()) {
         return {};
     }
 
     size_t values_length = max_index + 1;
-    vector<TypeInfo> type_infos(values_length);
+    vector<Function*> functions(values_length);
     for (size_t i = 0; i < values_length; i++) {
-        if (type_map.find(i) != type_map.end()) {
-            type_infos[i] = type_map[i];
+        if (function_map.find(i) != function_map.end()) {
+            functions[i] = function_map[i];
         } else {
             throw ParseException();
         }
     }
 
-    return type_infos;*/return {};
+    return functions;
 }
 
 
@@ -470,7 +500,6 @@ vector<LabelBlock*> parser::parse_label_blocks(const char* code, size_t code_len
 
     vector<LabelBlock*> label_blocks;
 
-    size_t max_index = 0;
     string line;
     while (current_position != code_length) {
         line.clear();
@@ -503,13 +532,12 @@ vector<LabelBlock*> parser::parse_label_blocks(const char* code, size_t code_len
 vector<Order*> parser::parse_orders(const char* code, size_t code_length, size_t* position) {
     size_t current_position = *position;
 
-    regex ASSIGNMENT_REG(R"((\w+)=(\w+))");
+    regex ASSIGNMENT_REG(R"((.+)=(.+))");
     regex ARGS_SEPARATE{","};
     string END = "label:end";
 
     vector<Order*> orders;
 
-    size_t max_index = 0;
     string line;
     while (current_position != code_length) {
         line.clear();
@@ -524,16 +552,97 @@ vector<Order*> parser::parse_orders(const char* code, size_t code_length, size_t
 
         smatch results;
         if (regex_match(line, results, ASSIGNMENT_REG)) {
-            auto assignment_register = results[1].str();
-            auto order = results[2].str();
+            size_t assignment_register = parser::parse_register_or_variable_number(results[1].str());
+            auto order_str = results[2].str();
 
+            auto order_itr = sregex_token_iterator(order_str.begin(), order_str.end(), ARGS_SEPARATE, -1);
+            auto end = sregex_token_iterator();
 
+            string order_name;
+            vector<string> args;
+            size_t i = 0;
+            while (order_itr != end) {
+                auto arg_str = (*order_itr++).str();
+                if (i == 0) {
+                    order_name = arg_str;
+                } else {
+                    args.push_back(arg_str);
+                }
+                i++;
+            }
+
+            auto* order = parser::parse_order(assignment_register, order_name, args);
+            orders.push_back(order);
+        } else {
+            auto order_itr = sregex_token_iterator(line.begin(), line.end(), ARGS_SEPARATE, -1);
+            auto end = sregex_token_iterator();
+
+            string order_name;
+            vector<string> args;
+            size_t i = 0;
+            while (order_itr != end) {
+                auto arg_str = (*order_itr++).str();
+                if (i == 0) {
+                    order_name = arg_str;
+                } else {
+                    args.push_back(arg_str);
+                }
+                i++;
+            }
+
+            auto* order = parser::parse_order(SIZE_MAX, order_name, args);
+            orders.push_back(order);
         }
     }
 
     *position = current_position;
 
     return orders;
+}
+
+
+Order* parser::parse_order(size_t assignment_register, const string& order_name, vector<string> args) {
+    if (assignment_register == SIZE_MAX) {
+        if (order_name == "jump_to") {
+            if (args.empty()) {
+                throw ParseException();
+            }
+            return new JumpToLabel(args[0]);
+        }
+    } else {
+        if (order_name == "const") {
+            if (args.size() < 2) {
+                throw ParseException();
+            }
+            auto* type = parser::parse_primitive_type(args[0].c_str());
+            size_t const_index = stoull(args[1]);
+            return new GetConstInteger(type, assignment_register, const_index);
+        }
+
+        if (order_name == "iadd") {
+            if (args.size() < 2) {
+                throw ParseException();
+            }
+            auto* type = parser::parse_primitive_type(args[0].c_str());
+            size_t left = parser::parse_register_or_variable_number(args[1]);
+            size_t right = parser::parse_register_or_variable_number(args[2]);
+            return new AddInteger(type, assignment_register, left, right);
+        }
+    }
+
+    throw ParseException();
+}
+
+
+size_t parser::parse_register_or_variable_number(const string& str) {
+    regex REG(R"((reg|var)#(\d+))");
+    smatch results;
+    if (regex_match(str, results, REG)) {
+        return stoull(results[2].str());
+    } else if (str == "@void") {
+        return SIZE_MAX;
+    }
+    throw ParseException();
 }
 
 
@@ -603,5 +712,9 @@ PrimitiveType* parser::parse_primitive_type(const char* type) {
             return it;
         }
     }
+    if (strcmp(type, "void") == 0) {
+        return nullptr;
+    }
+
     throw ParseException();
 }

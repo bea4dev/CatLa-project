@@ -1,7 +1,7 @@
 #include <vm/modules/Module.h>
 #include <utility>
 
-Module::Module(string name, ConstValue* const_values, size_t const_values_size, vector<string> import_module_names, Type** type_defines, size_t type_defines_size, vector<TypeInfo> using_type_infos) {
+Module::Module(string name, ConstValue* const_values, size_t const_values_size, vector<string> import_module_names, Type** type_defines, size_t type_defines_size, vector<TypeInfo> using_type_infos, vector<Function*> functions) {
     this->name = std::move(name);
     this->const_values = const_values;
     this->const_values_size = const_values_size;
@@ -13,4 +13,5 @@ Module::Module(string name, ConstValue* const_values, size_t const_values_size, 
     this->using_type_infos = std::move(using_type_infos);
     this->using_types = nullptr;
     this->using_types_size = 0;
+    this->functions = std::move(functions);
 }

@@ -135,7 +135,6 @@ int main()
     //return 0;
 
     Timing timing;
-    printf("1\n");
     timing.start();
     create(0);
 
@@ -146,7 +145,6 @@ int main()
         }
     }*/
     timing.end();
-    printf("2\n");
 
     printf("%llu[ms]\n", timing.get_sum_time());
 
@@ -162,6 +160,7 @@ int main()
                      "  8:9:s#TestClass\n"
                      "  9:2:i#32\n"
                      "  10:2:i#42\n"
+                     "  11:4:s#test\n"
                      "$end\n"
                      "\n"
                      "$import\n"
@@ -177,6 +176,18 @@ int main()
                      "\n"
                      "$type\n"
                      "  0:2:0\n"
+                     "$end\n"
+                     "\n"
+                     "$function\n"
+                     "  0:11:var:1:reg:5()->void{\n"
+                     "    label:entry\n"
+                     "      reg#0 = const,i64,6\n"
+                     "      reg#1 = const,i64,9\n"
+                     "      reg#2 = iadd,i64,reg#0,reg#1\n"
+                     "      reg#3 = const,i64,10\n"
+                     "      reg#4 = iadd,i64,reg#2,reg#3\n"
+                     "    label:end\n"
+                     "  }\n"
                      "$end";
     auto* module = parser::parse("test", &vm_code);
     if (module != nullptr) {
@@ -242,18 +253,8 @@ int main()
         printf("Module is null!\n");
     }
 
-    vector<Order*> orders1;
-    orders1.push_back(new GetConstI64(0, 6));
-    orders1.push_back(new GetConstI64(1, 9));
-    orders1.push_back(new AddI64(2, 0, 1));
-
-    vector<LabelBlock*> label_blocks;
-    label_blocks.push_back(new LabelBlock("entry", orders1));
-
     auto* vm_thread = catla::create_thread(1024);
-
-    auto* function = new Function("test", 0, 3, label_blocks);
-    catla::CatVM::run(vm_thread, module, function);
+    catla::CatVM::run(vm_thread, module, module->functions[0]);
 
 
     std::cout << "Complete!\n";

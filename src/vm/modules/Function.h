@@ -24,9 +24,11 @@ public:
     size_t variables_size;
     size_t registers_size;
     vector<LabelBlock*> label_blocks;
+    PrimitiveType* return_type;
+    vector<PrimitiveType*> argument_types;
 
 public:
-    Function(string name, size_t variables_size, size_t registers_size, vector<LabelBlock*> label_blocks);
+    Function(string name, size_t variables_size, size_t registers_size, vector<LabelBlock*> label_blocks, PrimitiveType* return_type, vector<PrimitiveType*> argument_types);
 
 };
 

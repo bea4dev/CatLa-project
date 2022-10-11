@@ -2,11 +2,11 @@
 
 #include <vm/modules/orders/Order.h>
 
-class GetConstI64 : public Order {
+class GetConstInteger : public Order {
 private:
     size_t const_index;
 
 public:
-    GetConstI64(size_t result_register, size_t const_index);
+    GetConstInteger(PrimitiveType* type, size_t result_register, size_t const_index);
     void eval(void* vm_thread, void *module, uint64_t* registers, uint64_t* variables) override;
 };

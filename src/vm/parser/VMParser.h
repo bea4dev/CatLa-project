@@ -38,6 +38,10 @@ namespace parser {
 
     vector<Order*> parse_orders(const char* code, size_t code_length, size_t* position);
 
+    Order* parse_order(size_t assignment_register, const string& order_name, vector<string> args);
+
+    size_t parse_register_or_variable_number(const string& str);
+
     void move_until(const char* code, size_t code_length, size_t* position, const char* chars, size_t chars_size, string* word);
 
     void move_until_next_line(const char* code, size_t code_length, size_t* position, string* line);

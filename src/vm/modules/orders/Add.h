@@ -11,8 +11,8 @@ protected:
 };
 
 
-class AddI64 : public Add {
+class AddInteger : public Add {
 public:
-    AddI64(size_t result_register, size_t left_register_index, size_t right_register_index);
+    AddInteger(PrimitiveType* type, size_t result_register, size_t left_register_index, size_t right_register_index);
     void eval(void* vm_thread, void *module, uint64_t* registers, uint64_t* variables) override;
 };
