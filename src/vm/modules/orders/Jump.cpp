@@ -10,7 +10,7 @@ JumpToLabel::JumpToLabel(string label_name) {
     this->label = nullptr;
 }
 
-void JumpToLabel::eval(void* vm_thread, void* module, uint64_t* registers, uint64_t* variables) {
+void JumpToLabel::eval(void* vm_thread, void* module, uint64_t* registers, uint64_t* variables, uint64_t* arguments) {
     auto* label_block = (LabelBlock*) this->label;
     auto* thread = (VMThread*) vm_thread;
     thread->current_label_block = label_block;

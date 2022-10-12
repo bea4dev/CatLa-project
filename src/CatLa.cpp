@@ -149,43 +149,28 @@ int main()
     printf("%llu[ms]\n", timing.get_sum_time());
 
     string vm_code = u8"$const\n"
-                     "  0:4:s#nyan\n"
-                     "  1:13:s#catla::system\n"
-                     "  2:13:s#catla::string\n"
-                     "  3:13:s#catla::stdout\n"
-                     "  4:16:s#catla::primitive\n"
-                     "  5:12:s#Hello world!\n"
-                     "  6:4:i#-128\n"
-                     "  7:4:f#3.14\n"
-                     "  8:9:s#TestClass\n"
-                     "  9:2:i#32\n"
-                     "  10:2:i#42\n"
-                     "  11:4:s#test\n"
+                     "  0:4:s#test\n"
                      "$end\n"
                      "\n"
                      "$import\n"
                      "  0:this\n"
-                     "  1:const#1\n"
-                     "  2:const#2\n"
-                     "  3:const#3\n"
                      "$end\n"
                      "\n"
                      "$typedef\n"
-                     "  0:8:2:0:(0:1)\n"
                      "$end\n"
                      "\n"
                      "$type\n"
-                     "  0:2:0\n"
                      "$end\n"
                      "\n"
                      "$function\n"
-                     "  0:11:var:1:reg:5()->void{\n"
+                     "  0:0:var:0:reg:5(0:i64, 1:i64, 2:i64)->i64{\n"
                      "    label:entry\n"
-                     "      reg#0 = const,i64,6\n"
-                     "      reg#1 = const,i64,9\n"
+                     "      reg#0 = arg,0\n"
+                     "      reg#1 = arg,1\n"
                      "      reg#2 = iadd,i64,reg#0,reg#1\n"
-                     "      reg#3 = const,i64,10\n"
+                     "      reg#3 = arg,2\n"
                      "      reg#4 = iadd,i64,reg#2,reg#3\n"
+                     "      ret,reg#4\n"
                      "    label:end\n"
                      "  }\n"
                      "$end";
@@ -253,9 +238,25 @@ int main()
         printf("Module is null!\n");
     }
 
-    auto* vm_thread = catla::create_thread(1024);
-    catla::CatVM::run(vm_thread, module, module->functions[0]);
+    auto* vm_thread = virtual_machine->create_thread(1024);
 
+    auto* function = module->functions[0];
+    size_t arguments_size = function->argument_types.size();
+    auto* arguments = new uint64_t[arguments_size];
+
+    int64_t argument1 = 20;
+    int64_t argument2 = 30;
+    int64_t argument3 = 40;
+    arguments[0] = *((uint64_t*) &argument1);
+    arguments[1] = *((uint64_t*) &argument2);
+    arguments[2] = *((uint64_t*) &argument3);
+
+    for (size_t s = 0; s < arguments_size; s++) {
+        printf("argument : %llu | value : %lld\n", s, arguments[s]);
+    }
+
+    uint64_t result = virtual_machine->run_function(vm_thread, module, function, arguments);
+    printf("Result = %llu\n", *((int64_t*) &result));
 
     std::cout << "Complete!\n";
 }

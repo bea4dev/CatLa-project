@@ -1,5 +1,4 @@
 #pragma once
-#include "vm.h"
 #include <vector>
 #include <mutex>
 #include <unordered_map>
@@ -26,9 +25,8 @@ namespace catla {
         Function* current_function;
         LabelBlock* current_label_block;
         size_t current_order_index;
+        bool return_function;
     } VMThread;
-
-    VMThread* create_thread(size_t stack_size);
 
 
     class CatVM {
@@ -41,8 +39,9 @@ namespace catla {
     public:
         CatVM();
 
-        static void run(VMThread* vm_thread, Module* module, Function* function);
+        uint64_t run_function(VMThread* vm_thread, Module* module, Function* function, uint64_t* arguments);
         Module* get_module(const string& module_name);
         void register_module(Module* module);
+        VMThread* create_thread(size_t stack_size);
     };
 }

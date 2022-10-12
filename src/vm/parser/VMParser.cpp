@@ -609,6 +609,14 @@ Order* parser::parse_order(size_t assignment_register, const string& order_name,
             }
             return new JumpToLabel(args[0]);
         }
+
+        if (order_name == "ret") {
+            if (args.empty()) {
+                throw ParseException();
+            }
+            size_t result_register = parser::parse_register_or_variable_number(args[0]);
+            return new ReturnFunction(result_register);
+        }
     } else {
         if (order_name == "const") {
             if (args.size() < 2) {
@@ -617,6 +625,14 @@ Order* parser::parse_order(size_t assignment_register, const string& order_name,
             auto* type = parser::parse_primitive_type(args[0].c_str());
             size_t const_index = stoull(args[1]);
             return new GetConstInteger(type, assignment_register, const_index);
+        }
+
+        if (order_name == "arg") {
+            if (args.empty()) {
+                throw ParseException();
+            }
+            size_t argument_index = stoull(args[0]);
+            return new GetArgument(assignment_register, argument_index);
         }
 
         if (order_name == "iadd") {

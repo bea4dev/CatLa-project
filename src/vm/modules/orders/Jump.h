@@ -12,5 +12,5 @@ private:
 
 public:
     explicit JumpToLabel(string label_name);
-    void eval(void* vm_thread, void *module, uint64_t *registers, uint64_t *variables) override;
+    void eval(void* vm_thread, void *module, uint64_t *registers, uint64_t *variables, uint64_t* arguments) override;
 };
