@@ -5,6 +5,7 @@
 #include <vector>
 #include <vm/parser/Structs.h>
 #include <vm/PrimitiveType.h>
+#include <vm/modules/Field.h>
 
 using namespace std;
 using namespace type;
@@ -19,7 +20,7 @@ namespace modules {
         std::string type_name;
         size_t runtime_type_id;
         vector<FieldInfo> field_infos;
-
+        vector<Field> fields;
         TypeInfo parent_info;
         Type* parent;
 
@@ -27,5 +28,6 @@ namespace modules {
 
     };
 
+    Type* get_from_primitive_type(PrimitiveType* type);
 
 }

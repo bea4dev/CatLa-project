@@ -13,3 +13,10 @@ Type::Type(PrimitiveType* primitive_type, std::string type_name, size_t runtime_
     this->parent_info = std::move(parent_info);
     this->parent = nullptr;
 }
+
+Type* modules::get_from_primitive_type(PrimitiveType* type) {
+    if (type == nullptr) {
+        return nullptr;
+    }
+    return (Type*) type->type;
+}

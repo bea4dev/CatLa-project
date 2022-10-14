@@ -145,7 +145,18 @@ Module* CatVM::load_module(const string& name) {
             auto type_name = info.type_name;
             type->parent = mod->import_modules[import_module_index]->type_define_map[type_name];
 
-
+            for (auto& field_info : type->field_infos) {
+                if (field_info.primitive_type != nullptr) {
+                    Field field{field_info.field_name, modules::get_from_primitive_type(field_info.primitive_type)};
+                    type->fields.push_back(field);
+                } else {
+                    size_t import_index = field_info.user_def_type.import_index;
+                    auto field_type_name = field_info.user_def_type.type_name;
+                    auto* field_type = mod->import_modules[import_index]->type_define_map[field_type_name];
+                    Field field{field_info.field_name, field_type};
+                    type->fields.push_back(field);
+                }
+            }
         }
     }
 
@@ -154,6 +165,26 @@ Module* CatVM::load_module(const string& name) {
             size_t import_module_index = type_info.import_index;
             auto type_name = type_info.type_name;
             mod->using_types.push_back(mod->import_modules[import_module_index]->type_define_map[type_name]);
+        }
+    }
+
+    for (auto& mod : loaded) {
+        for (auto& function : mod->functions) {
+            auto return_type_info = function->return_type_info;
+            if (return_type_info.primitive_type != nullptr) {
+                function->return_type = modules::get_from_primitive_type(return_type_info.primitive_type);
+            } else {
+                size_t type_index = return_type_info.type_index;
+                function->return_type = mod->using_types[type_index];
+            }
+
+            for (auto& arg_type_info : function->argument_type_infos) {
+                if (arg_type_info.primitive_type != nullptr) {
+                    function->argument_types.push_back(modules::get_from_primitive_type(arg_type_info.primitive_type));
+                } else {
+                    function->argument_types.push_back(mod->using_types[arg_type_info.type_index]);
+                }
+            }
         }
     }
 

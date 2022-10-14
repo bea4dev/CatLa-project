@@ -290,7 +290,7 @@ vector<Type*> parser::parse_type_define(const char *code, size_t code_length, si
         auto fields_str = results[2].str();
 
         vector<FieldInfo> fields;
-        auto fields_itr = sregex_token_iterator(fields_str.begin(), fields_str.end(), ARGS_SEPARATE);
+        auto fields_itr = sregex_token_iterator(fields_str.begin(), fields_str.end(), ARGS_SEPARATE, -1);
         auto end = sregex_token_iterator();
         while (fields_itr != end) {
             auto field_str = (*fields_itr++).str();
@@ -378,9 +378,9 @@ vector<TypeInfo> parser::parse_type(const char* code, size_t code_length, size_t
 vector<Function*> parser::parse_function(const char* code, size_t code_length, size_t* position, ConstValue* const_values) {
     size_t current_position = *position;
 
-    regex INFO_REG(R"((\d+):(\d+):var:(\d+):reg:(\d+)\((.*)\)->(\w+)\{)");
+    regex INFO_REG(R"((\d+):(\d+):var:(\d+):reg:(\d+)\((.*)\)->(.+)\{)");
     regex ARGS_SEPARATE{","};
-    regex ARGS_INFO(R"((\d+):(\w+))");
+    regex ARGS_INFO(R"((\d+):(.+))");
     string END = "$end";
 
     unordered_map<size_t, Function*> function_map;
@@ -413,11 +413,10 @@ vector<Function*> parser::parse_function(const char* code, size_t code_length, s
 
             string args_str = results[5].str();
 
-            unordered_map<size_t, PrimitiveType*> arg_map;
+            unordered_map<size_t, ArgumentInfo> arg_map;
             auto args_iterator = sregex_token_iterator(args_str.begin(), args_str.end(), ARGS_SEPARATE, -1);
             auto end = sregex_token_iterator();
             size_t max_arg_index = 0;
-
             while (args_iterator != end) {
                 auto arg = (*args_iterator++).str();
 
@@ -429,21 +428,20 @@ vector<Function*> parser::parse_function(const char* code, size_t code_length, s
                     throw ParseException();
                 } else {
                     size_t arg_index = stoull(arg_result[1].str());
-                    auto* type = parser::parse_primitive_type(arg_result[2].str().c_str());
-                    arg_map[arg_index] = type;
+                    auto type_info = parser::parse_argument_type(arg_result[2].str());
+                    arg_map[arg_index] = type_info;
 
                     if (arg_index > max_arg_index) {
                         max_arg_index = arg_index;
                     }
                 }
             }
-
-            auto return_type = parser::parse_primitive_type(results[6].str().c_str());
+            auto return_type_info = parser::parse_argument_type(results[6].str());
 
             if (!arg_map.empty()) {
                 max_arg_index += 1;
             }
-            vector<PrimitiveType*> argument_types(max_arg_index);
+            vector<ArgumentInfo> argument_types(max_arg_index);
             for (size_t i = 0; i < max_arg_index; i++) {
                 if (arg_map.find(i) != arg_map.end()) {
                     argument_types[i] = arg_map[i];
@@ -454,7 +452,7 @@ vector<Function*> parser::parse_function(const char* code, size_t code_length, s
 
             auto label_blocks = parser::parse_label_blocks(code, code_length, &current_position);
 
-            function_map[index] = new Function(name, variables_size, registers_size, label_blocks, return_type, argument_types);
+            function_map[index] = new Function(name, variables_size, registers_size, label_blocks, return_type_info, argument_types);
         }
     }
 
@@ -714,9 +712,19 @@ PrimitiveType* parser::parse_primitive_type(const char* type) {
             return it;
         }
     }
-    if (strcmp(type, "void") == 0) {
-        return nullptr;
-    }
 
     throw ParseException();
+}
+
+ArgumentInfo parser::parse_argument_type(const string& type) {
+    regex USER_TYPE_DEF_REG(R"(type#(\d+))");
+
+    smatch results;
+    if (regex_match(type, results, USER_TYPE_DEF_REG)) {
+        size_t type_index = stoull(results[1].str());
+        return {nullptr, type_index};
+    } else {
+        auto primitive_type = parser::parse_primitive_type(type.c_str());
+        return {primitive_type, 0};
+    }
 }

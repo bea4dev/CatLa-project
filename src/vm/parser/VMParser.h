@@ -54,4 +54,6 @@ namespace parser {
 
     PrimitiveType* parse_primitive_type(const char* type);
 
+    ArgumentInfo parse_argument_type(const string& type);
+
 }

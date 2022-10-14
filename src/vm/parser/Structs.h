@@ -21,3 +21,8 @@ typedef struct {
     PrimitiveType* primitive_type;
     TypeInfo user_def_type;
 } FieldInfo;
+
+typedef struct {
+    PrimitiveType* primitive_type;
+    size_t type_index;
+} ArgumentInfo;
