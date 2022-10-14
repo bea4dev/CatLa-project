@@ -22,13 +22,13 @@ namespace parser {
     };
 
 
-    Module* parse(string name, string* code);
+    Module* parse(const string& name, string* code);
 
     Array parse_const(const char* code, size_t code_length, size_t* position);
 
     vector<string> parse_import(const string& module_name, const char* code, size_t code_length, size_t* position, ConstValue* const_values);
 
-    Array parse_type_define(const char* code, size_t code_length, size_t* position, ConstValue* const_values);
+    vector<Type*> parse_type_define(const char* code, size_t code_length, size_t* position, ConstValue* const_values);
 
     vector<TypeInfo> parse_type(const char* code, size_t code_length, size_t* position);
 

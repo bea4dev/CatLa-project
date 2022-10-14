@@ -4,8 +4,10 @@
 #include <cstdint>
 #include <vector>
 #include <vm/parser/Structs.h>
+#include <vm/PrimitiveType.h>
 
 using namespace std;
+using namespace type;
 
 namespace modules {
 
@@ -13,15 +15,15 @@ namespace modules {
 
     public:
         void* module;
+        PrimitiveType* primitive_type;
         std::string type_name;
         size_t runtime_type_id;
-        size_t refs_length;
-        size_t vals_length;
-        vector<TypeInfo> parent_infos;
-        Type** parents;
-        size_t parents_size;
+        vector<FieldInfo> field_infos;
 
-        Type(std::string type_name, size_t runtime_type_id, size_t refs_length, size_t vals_length, vector<TypeInfo> parent_infos);
+        TypeInfo parent_info;
+        Type* parent;
+
+        Type(PrimitiveType* primitive_type, std::string type_name, size_t runtime_type_id, const vector<FieldInfo>& field_infos, TypeInfo parent_info);
 
     };
 

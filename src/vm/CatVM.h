@@ -34,6 +34,7 @@ namespace catla {
     private:
         mutex threads_manage_lock;
         vector<VMThread*> threads;
+        unordered_map<string, string> pre_loaded_module_map;
         unordered_map<string, Module*> loaded_module_map;
 
     public:
@@ -41,7 +42,10 @@ namespace catla {
 
         uint64_t run_function(VMThread* vm_thread, Module* module, Function* function, uint64_t* arguments);
         Module* get_module(const string& module_name);
+        string get_pre_loaded_module(const string& module_name);
         void register_module(Module* module);
+        void pre_load_module(const string& name, string code);
+        Module* load_module(const string& name);
         VMThread* create_thread(size_t stack_size);
     };
 }

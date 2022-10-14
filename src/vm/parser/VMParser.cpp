@@ -14,7 +14,7 @@ using namespace type;
 const char HASH_MARK[] = "#\n\0";
 
 
-Module* parser::parse(string name, string* code) {
+Module* parser::parse(const string& name, string* code) {
     size_t current_position = 0;
     const char* code_str = code->c_str();
     size_t code_length = code->size();
@@ -22,8 +22,7 @@ Module* parser::parse(string name, string* code) {
     ConstValue* const_values = nullptr;
     size_t const_values_size = 0;
     vector<string> import_module_names;
-    Type** type_defines = nullptr;
-    size_t type_defines_size = 0;
+    vector<Type*> type_defines;
     vector<TypeInfo> using_types;
     vector<Function*> functions;
 
@@ -46,9 +45,7 @@ Module* parser::parse(string name, string* code) {
             } else if (line == IMPORT) {
                 import_module_names = parse_import(name, code_str, code_length, &current_position, const_values);
             } else if (line == TYPE_DEF) {
-                auto array = parse_type_define(code_str, code_length, &current_position, const_values);
-                type_defines = (Type**) array.values;
-                type_defines_size = array.values_size;
+                type_defines = parse_type_define(code_str, code_length, &current_position, const_values);
             } else if (line == TYPE) {
                 using_types = parse_type(code_str, code_length, &current_position);
             } else if (line == FUNCTION) {
@@ -56,7 +53,7 @@ Module* parser::parse(string name, string* code) {
             }
         }
 
-        auto* module = new Module(name, const_values, const_values_size, std::move(import_module_names), type_defines, type_defines_size, std::move(using_types), std::move(functions));
+        auto* module = new Module(name, const_values, const_values_size, import_module_names, type_defines, using_types, functions);
 
         return module;
     } catch (const ParseException& e) {
@@ -250,18 +247,19 @@ vector<string> parser::parse_import(const string& module_name, const char *code,
 }
 
 
-Array parser::parse_type_define(const char *code, size_t code_length, size_t *position, ConstValue* const_values) {
+vector<Type*> parser::parse_type_define(const char *code, size_t code_length, size_t *position, ConstValue* const_values) {
     size_t current_position = *position;
 
-    regex INFO_REG(R"((\d+):(\d+):(\d+):(\d+):\((.*)\))");
-    regex EXTENDS_SEPARATE{","};
-    regex EXTENDS_INFO(R"((\d+):(\d+))");
+    regex INFO_REG1(R"((\d+):\((.*)\):(\d+):(\d+))");
+    regex INFO_REG2(R"((\d+):\((.*)\))");
+    regex ARGS_SEPARATE{","};
+    regex ARG_INFO1(R"((\d+):(\w+))");
+    regex ARG_INFO2(R"((\d+):(\d+):(\d+))");
     string END = "$end";
     string CONST = "const";
 
-    unordered_map<size_t, Type*> type_map;
+    vector<Type*> types;
 
-    size_t max_index = 0;
     string line;
     while (current_position != code_length) {
         line.clear();
@@ -274,61 +272,49 @@ Array parser::parse_type_define(const char *code, size_t code_length, size_t *po
             continue;
         }
 
+        string name;
+        size_t extends_import_index = 0;
+        string extends_type_name;
+
         smatch results;
-        if (!regex_match(line, results, INFO_REG)) {
-            throw ParseException();
+        if (regex_match(line, results, INFO_REG1)) {
+            name = parser::get_const_value_as_string(const_values, stoull(results[1]));
+            extends_import_index = stoull(results[3]);
+            extends_type_name = parser::get_const_value_as_string(const_values, stoull(results[4]));
+        } else if (regex_match(line, results, INFO_REG2)) {
+            name = parser::get_const_value_as_string(const_values, stoull(results[1]));
         } else {
-            size_t index = stoull(results[1].str());
-            if (index > max_index) {
-                max_index = index;
-            }
-
-            auto name = parser::get_const_value_as_string(const_values, stoull(results[2].str()));
-            size_t refs_length = stoull(results[3].str());
-            size_t vals_length = stoull(results[4].str());
-
-
-            vector<TypeInfo> parent_infos;
-
-            auto extends = results[5].str();
-            auto extends_iterator = sregex_token_iterator(extends.begin(), extends.end(), EXTENDS_SEPARATE, -1);
-            auto end = sregex_token_iterator();
-            while (extends_iterator != end) {
-                auto type_string = (*extends_iterator++).str();
-
-                smatch type_result;
-                if (!regex_match(type_string, type_result, EXTENDS_INFO)) {
-                    throw ParseException();
-                } else {
-                    size_t import_index = stoull(type_result[1].str());
-                    size_t type_define_index = stoull(type_result[2].str());
-
-                    parent_infos.push_back({import_index, type_define_index});
-                }
-            }
-
-            auto* type = new Type(name, 0, refs_length, vals_length, parent_infos);
-            type_map[index] = type;
+            throw ParseException();
         }
+
+        auto fields_str = results[2].str();
+
+        vector<FieldInfo> fields;
+        auto fields_itr = sregex_token_iterator(fields_str.begin(), fields_str.end(), ARGS_SEPARATE);
+        auto end = sregex_token_iterator();
+        while (fields_itr != end) {
+            auto field_str = (*fields_itr++).str();
+
+            if (regex_match(field_str, results, ARG_INFO1)) {
+                auto field_name = results[1].str();
+                auto* primitive_type = parser::parse_primitive_type(results[2].str().c_str());
+                fields.push_back({field_name, primitive_type, {0, ""}});
+            } else if (regex_match(field_str, results, ARG_INFO2)) {
+                auto field_name = results[1].str();
+                size_t import_index = stoull(results[2].str());
+                auto type_name = parser::get_const_value_as_string(const_values, stoull(results[3].str()));
+                fields.push_back({field_name, nullptr, {import_index, type_name}});
+            } else {
+                throw ParseException();
+            }
+        }
+
+        types.push_back(new Type(nullptr, name, 0, fields, {0, extends_type_name}));
     }
 
     *position = current_position;
 
-    if (type_map.empty()) {
-        return {nullptr, 0};
-    }
-
-    size_t values_length = max_index + 1;
-    auto** types = new Type*[values_length];
-    for (size_t i = 0; i < values_length; i++) {
-        if (type_map.find(i) != type_map.end()) {
-            types[i] = type_map[i];
-        } else {
-            throw ParseException();
-        }
-    }
-
-    return {types, values_length};
+    return types;
 }
 
 
@@ -363,9 +349,9 @@ vector<TypeInfo> parser::parse_type(const char* code, size_t code_length, size_t
             }
 
             size_t import_index = stoull(results[2].str());
-            size_t type_define_index = stoull(results[3].str());
+            auto type_name = results[3].str();
 
-            type_map[index] = {import_index, type_define_index};
+            type_map[index] = {import_index, type_name};
         }
     }
 

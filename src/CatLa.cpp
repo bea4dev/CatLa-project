@@ -174,6 +174,8 @@ int main()
                      "    label:end\n"
                      "  }\n"
                      "$end";
+
+    /*
     auto* module = parser::parse("test", &vm_code);
     if (module != nullptr) {
         auto* const_values = module->const_values;
@@ -236,6 +238,12 @@ int main()
         }
     } else {
         printf("Module is null!\n");
+    }*/
+
+    virtual_machine->pre_load_module("test", vm_code);
+    auto* module = virtual_machine->load_module("test");
+    if (module == nullptr) {
+        printf("NULL!!\n");
     }
 
     auto* vm_thread = virtual_machine->create_thread(1024);
