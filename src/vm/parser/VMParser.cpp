@@ -309,7 +309,7 @@ vector<Type*> parser::parse_type_define(const char *code, size_t code_length, si
             }
         }
 
-        types.push_back(new Type(nullptr, name, 0, fields, {0, extends_type_name}));
+        types.push_back(new Type(nullptr, name, 0, fields, {extends_import_index, extends_type_name}));
     }
 
     *position = current_position;
