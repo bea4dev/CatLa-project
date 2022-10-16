@@ -8,9 +8,8 @@ typedef struct {
     atomic_size_t count; //8byte
     uint32_t flags; //4byte
     atomic_flag lock_flag; //4byte
-    size_t refs_length; //8byte
-    size_t vals_length; //8byte
-    Type* class_info; //8byte
+    size_t field_length; //8byte
+    void* type_info; //8byte
 } HeapObject;
 
 inline void object_lock(HeapObject* object) {
@@ -42,10 +41,10 @@ public:
 public:
     explicit HeapChunk(size_t cells_size);
     ~HeapChunk();
-    void* malloc(Type* class_info, size_t index, size_t block_size);
+    void* malloc(void* type_info, size_t index, size_t block_size);
 };
 
-class GlobalHeap {
+class HeapAllocator {
 private:
     size_t number_of_chunks;
     HeapChunk** chunks;
@@ -53,7 +52,7 @@ private:
     size_t chunks_cells_size;
 
 public:
-    GlobalHeap(size_t chunks_cells_size, size_t number_of_chunks);
-    void* malloc(Type* class_info, size_t refs_length, size_t vals_length, size_t* start_index);
+    HeapAllocator(size_t chunks_cells_size, size_t number_of_chunks);
+    void* malloc(void* type_info, size_t fields_length, size_t* chunk_search_start_index);
     void create_new_chunk(size_t cells_size);
 };

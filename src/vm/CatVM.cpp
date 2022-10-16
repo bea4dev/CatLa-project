@@ -3,6 +3,7 @@
 #include <utility>
 #include <vm/parser/VMParser.h>
 #include <unordered_set>
+#include <CatLa.h>
 
 using namespace catla;
 using namespace heap;
@@ -12,7 +13,9 @@ namespace catla {
     size_t reserved_threads = 1;
 }
 
-CatVM::CatVM() = default;
+CatVM::CatVM() {
+    this->heap_allocator = new HeapAllocator(1024, 1);
+}
 
 uint64_t CatVM::run_function(VMThread* vm_thread, Module* module, Function* function, uint64_t* arguments) {
     size_t registers_size = function->registers_size;
@@ -185,6 +188,14 @@ Module* CatVM::load_module(const string& name) {
                     function->argument_types.push_back(mod->using_types[arg_type_info.type_index]);
                 }
             }
+        }
+    }
+
+    for (auto& mod : loaded) {
+        auto type = mod->type_define_map[mod->name];
+        if (type != nullptr) {
+            size_t at = 0;
+            mod->module_fields = this->get_heap_allocator()->malloc(type, type->fields.size(), &at);
         }
     }
 

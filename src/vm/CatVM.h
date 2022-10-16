@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include <vm/modules/Module.h>
 #include <vm/modules/Function.h>
+#include <heap/HeapAllocator.h>
 
 namespace heap {
     class HeapLifeManager;
@@ -36,6 +37,7 @@ namespace catla {
         vector<VMThread*> threads;
         unordered_map<string, string> pre_loaded_module_map;
         unordered_map<string, Module*> loaded_module_map;
+        HeapAllocator* heap_allocator;
 
     public:
         CatVM();
@@ -47,5 +49,8 @@ namespace catla {
         void pre_load_module(const string& name, string code);
         Module* load_module(const string& name);
         VMThread* create_thread(size_t stack_size);
+        inline HeapAllocator* get_heap_allocator() {
+            return heap_allocator;
+        }
     };
 }

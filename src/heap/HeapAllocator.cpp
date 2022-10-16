@@ -1,9 +1,6 @@
 #include "HeapAllocator.h"
 #include <util/Benchmark.h>
 
-using namespace heap;
-
-
 #define BLOCK_SIZE0 32
 #define BLOCK_SIZE1 40
 #define BLOCK_SIZE2 48
@@ -77,7 +74,9 @@ HeapChunk::~HeapChunk() {
 }
 
 
-void* HeapChunk::malloc(Type* class_info, size_t index, size_t block_size) {
+void* HeapChunk::malloc(void* type_info, size_t index, size_t block_size) {
+    size_t cells_size_ = this->cells_size;
+
     while (true) {
         auto* block_info = (this->block_info_list) + index;
 
@@ -95,7 +94,6 @@ void* HeapChunk::malloc(Type* class_info, size_t index, size_t block_size) {
             continue;
         }
 
-        size_t cells_size_ = this->cells_size;
         uint8_t* block_entry = block_info->entry_position;
 
         size_t current_entry_index = block_info->current_automaton_index;
@@ -123,6 +121,7 @@ void* HeapChunk::malloc(Type* class_info, size_t index, size_t block_size) {
                     current_entry = block_entry;
                     current_entry_index = 0;
                 }
+                object_unlock(object);
                 continue;
             }
             mark_object_alive(object);
@@ -133,6 +132,9 @@ void* HeapChunk::malloc(Type* class_info, size_t index, size_t block_size) {
                 current_entry_index = 0;
             }
             block_info->current_automaton_index = current_entry_index;
+
+            object->type_info = type_info;
+
             return object;
         }
         block_info->current_automaton_index = current_entry_index;
@@ -152,7 +154,7 @@ void* HeapChunk::malloc(Type* class_info, size_t index, size_t block_size) {
 }
 
 
-GlobalHeap::GlobalHeap(size_t chunks_cells_size, size_t number_of_chunks) {
+HeapAllocator::HeapAllocator(size_t chunks_cells_size, size_t number_of_chunks) {
     this->chunks_cells_size = chunks_cells_size;
     this->number_of_chunks = number_of_chunks;
     this->chunks = new HeapChunk*[number_of_chunks];
@@ -177,8 +179,8 @@ GlobalHeap::GlobalHeap(size_t chunks_cells_size, size_t number_of_chunks) {
     #define ADDRESS_SIZE_SHIFT 3
 #endif
 
-void* GlobalHeap::malloc(Type* class_info, size_t refs_length, size_t vals_length, size_t* start_index) {
-    size_t byte_size = sizeof(HeapObject) + (refs_length << ADDRESS_SIZE_SHIFT) + (vals_length << ADDRESS_SIZE_SHIFT);
+void* HeapAllocator::malloc(void* type_info, size_t fields_length, size_t* chunk_search_start_index) {
+    size_t byte_size = sizeof(HeapObject) + (fields_length << ADDRESS_SIZE_SHIFT);
 
     size_t index;
     size_t block_size;
@@ -212,7 +214,7 @@ void* GlobalHeap::malloc(Type* class_info, size_t refs_length, size_t vals_lengt
         return nullptr;
     }
 
-    size_t current_chunk_index = *start_index;
+    size_t current_chunk_index = *chunk_search_start_index;
 
     this->lock.lock();
     HeapChunk** heap_chunks = this->chunks;
@@ -233,9 +235,9 @@ void* GlobalHeap::malloc(Type* class_info, size_t refs_length, size_t vals_lengt
 
             HeapChunk* chunk = heap_chunks[current_chunk_index];
 
-            void* address = chunk->malloc(class_info, index, block_size);
+            void* address = chunk->malloc(type_info, index, block_size);
             if (address != nullptr) {
-                *start_index = current_chunk_index;
+                *chunk_search_start_index = current_chunk_index;
                 return address;
             }
 
@@ -247,13 +249,11 @@ void* GlobalHeap::malloc(Type* class_info, size_t refs_length, size_t vals_lengt
             i++;
         }
     }
-
-    return nullptr;
 }
 
 
 
-void GlobalHeap::create_new_chunk(size_t cells_size) {
+void HeapAllocator::create_new_chunk(size_t cells_size) {
     auto* chunk = new HeapChunk(cells_size);
 
     this->lock.lock();

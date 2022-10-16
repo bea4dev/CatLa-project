@@ -88,20 +88,20 @@ size_t test(size_t address) {
     return 0;
 }
 
-GlobalHeap* global_heap;
+HeapAllocator* global_heap;
 size_t j = 0;
 size_t c = 0;
 
 HeapObject* create(int count) {
     if (count > 20) {
         c++;
-        return (HeapObject*) global_heap->malloc(nullptr, 2, 0, &j);
+        return (HeapObject*) global_heap->malloc(nullptr, 2, &j);
         //return (HeapObject*) calloc(1, 40 + 16);
         //return (HeapObject*) malloc(40 + 16);
     }
     count++;
     c++;
-    auto* parent = (size_t**) global_heap->malloc(nullptr, 2, 0, &j);
+    auto* parent = (size_t**) global_heap->malloc(nullptr, 2, &j);
     //auto* parent = (size_t**) calloc(1, 40 + 16);
     //auto* parent = (size_t**) malloc(40 + 16);
     auto* child1 = create(count);
@@ -123,7 +123,7 @@ int main()
 
     setup_virtual_machine();
 
-    global_heap = new GlobalHeap(1024, 1);
+    global_heap = new HeapAllocator(1024, 1);
     /*for (int t = 0; t < 600; t++) {
         global_heap->create_new_chunk(1024);
     }*/

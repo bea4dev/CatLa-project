@@ -33,6 +33,8 @@ public:
 
     vector<Function*> functions;
 
+    void* module_fields = nullptr;
+
 public:
     Module(string name, ConstValue *const_values, size_t const_values_size, const vector<string> &import_module_names,
            const vector<Type *> &type_defines, const vector<TypeInfo> &using_type_infos,
