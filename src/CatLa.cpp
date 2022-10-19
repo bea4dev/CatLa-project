@@ -117,9 +117,71 @@ HeapObject* create(int count) {
 
 using namespace benchmark;
 
+atomic_size_t a(40000);
+int b;
+
+void* func(void* args) {
+    for (int s = 0; s < 10000; s++) {
+        if (a.fetch_sub(1, std::memory_order_seq_cst) == 1) {
+            b = 0;
+        } else {
+            b = 1;
+        }
+    }
+    return nullptr;
+}
+
+bool f = true;
+size_t n = 0;
+size_t m = 0;
+atomic_flag flag;
+
 int main()
 {
     std::cout << "Hello World!\n";
+
+    pthread_t pthread1;
+    pthread_t pthread2;
+    pthread_t pthread3;
+    pthread_t pthread4;
+    pthread_attr_t thread_attribute;
+    pthread_attr_init(&thread_attribute);
+    pthread_create(&pthread1, &thread_attribute, func, nullptr);
+    pthread_create(&pthread2, &thread_attribute, func, nullptr);
+    pthread_create(&pthread3, &thread_attribute, func, nullptr);
+    pthread_create(&pthread4, &thread_attribute, func, nullptr);
+    pthread_join(pthread1, nullptr);
+    pthread_join(pthread2, nullptr);
+    pthread_join(pthread3, nullptr);
+    pthread_join(pthread4, nullptr);
+    printf("%llu | %d\n", a.load(), b);
+
+    Timing timing1;
+    Timing timing2;
+
+    timing1.start();
+    for (int s = 0; s < 10000000; s++) {
+        if (f) {
+            n++;
+        }
+    }
+    atomic_thread_fence(std::memory_order_release);
+    timing1.end();
+
+    timing2.start();
+    while (flag.test_and_set(memory_order_acquire)) {
+        //lock
+    }
+    for (int s = 0; s < 10000000; s++) {
+        if (f) {
+            m++;
+        }
+    }
+    flag.clear(memory_order_release);
+    timing2.end();
+
+    printf("%llu[ms]\n", timing1.get_sum_time());
+    printf("%llu[ms]\n", timing2.get_sum_time());
 
     setup_virtual_machine();
 
@@ -186,71 +248,6 @@ int main()
                      "    label:end\n"
                      "  }\n"
                      "$end";
-
-    /*
-    auto* module = parser::parse("test", &vm_code);
-    if (module != nullptr) {
-        auto* const_values = module->const_values;
-        size_t const_values_size = module->const_values_size;
-        if (const_values != nullptr) {
-            for (size_t index = 0; index < const_values_size; index++) {
-                auto* const_value_reference = const_values + index;
-                size_t byte_size = const_value_reference->byte_size;
-
-                switch (const_value_reference->type) {
-                    case 's': {
-                        char* word_str = (char*) const_value_reference->value_reference;
-                        char* str = new char[byte_size + 1];
-                        for (size_t s = 0; s < byte_size; s++) {
-                            str[s] = word_str[s];
-                        }
-                        str[byte_size] = '\0';
-                        printf("const : string : %s\n", str);
-                        delete[] str;
-                        break;
-                    }
-                    case 'i': {
-                        int64_t ci = *((int64_t*) const_value_reference->value_reference);
-                        printf("const : int64 : %lld\n", ci);
-                        break;
-                    }
-                    case 'f': {
-                        double cf = *((double*) const_value_reference->value_reference);
-                        printf("const : double : %f\n", cf);
-                        break;
-                    }
-                    default: {
-                        printf("const : UNKNOWN\n");
-                    }
-                }
-            }
-        } else {
-            printf("Const values is null!\n");
-        }
-
-        auto import_module_names = module->import_module_names;
-        for (auto& import_module_name : import_module_names) {
-            printf("module : %s\n", import_module_name.c_str());
-        }
-
-        auto** type_defines = module->type_defines;
-        size_t type_defines_size = module->type_defines_size;
-        if (type_defines != nullptr) {
-            for (size_t s = 0; s < type_defines_size; s++) {
-                auto* type = type_defines[s];
-                printf("type define : %s %llu %llu\n", type->type_name.c_str(), type->refs_length, type->vals_length);
-            }
-        } else {
-            printf("Type defines is null!\n");
-        }
-
-        auto using_type_infos = module->using_type_infos;
-        for (auto& type_info : using_type_infos) {
-            printf("using type : %llu %llu\n", type_info.import_index, type_info.type_define_index);
-        }
-    } else {
-        printf("Module is null!\n");
-    }*/
 
     virtual_machine->pre_load_module("test", vm_code);
     auto* module = virtual_machine->load_module("test");
