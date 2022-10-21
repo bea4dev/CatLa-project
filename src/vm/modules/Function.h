@@ -26,13 +26,14 @@ public:
     size_t variables_size;
     size_t registers_size;
     vector<LabelBlock*> label_blocks;
-    ArgumentInfo return_type_info;
+    unordered_map<string, LabelBlock*> label_block_map;
+    ArgumentInfo return_type_info{};
     Type* return_type;
     vector<ArgumentInfo> argument_type_infos;
     vector<Type*> argument_types;
 
 public:
-    Function(string name, size_t variables_size, size_t registers_size, vector<LabelBlock*> label_blocks, const ArgumentInfo& return_type_info, const vector<ArgumentInfo>& argument_type_infos);
+    Function(string name, size_t variables_size, size_t registers_size, vector<LabelBlock*> label_blocks, ArgumentInfo return_type_info, const vector<ArgumentInfo>& argument_type_infos);
 
 };
 

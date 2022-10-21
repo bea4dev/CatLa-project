@@ -11,3 +11,7 @@ void GetConstInteger::eval(void* vm_thread, void* module, uint64_t* registers, u
     auto mod = (Module*) module;
     registers[this->result_register] = *((uint64_t*) (mod->const_values[this->const_index].value_reference));
 }
+
+void GetConstInteger::link(void *module, void *function) {
+    //None
+}

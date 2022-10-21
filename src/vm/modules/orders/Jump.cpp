@@ -16,3 +16,8 @@ void JumpToLabel::eval(void* vm_thread, void* module, uint64_t* registers, uint6
     thread->current_label_block = label_block;
     thread->current_order_index = 0;
 }
+
+void JumpToLabel::link(void* module, void* function) {
+    auto* func = (Function*) function;
+    this->label = func->label_block_map[this->label_name];
+}

@@ -6,20 +6,22 @@ using namespace concurrent;
 
 typedef struct {
     atomic_size_t count; //8byte
-    uint32_t flags; //4byte
-    atomic_flag lock_flag; //4byte
+    size_t flags; //8byte
+    size_t lock_flag; //8byte
     size_t field_length; //8byte
     void* type_info; //8byte
 } HeapObject;
 
 inline void object_lock(HeapObject* object) {
-    while (object->lock_flag.test_and_set(std::memory_order_acquire)) {
+    auto* flag = (atomic_flag*) (((size_t*) object) + 2);
+    while (flag->test_and_set(std::memory_order_acquire)) {
         //wait
     }
 }
 
 inline void object_unlock(HeapObject* object) {
-    object->lock_flag.clear(std::memory_order_release);
+    auto* flag = (atomic_flag*) (((size_t*) object) + 2);
+    flag->clear(std::memory_order_release);
 }
 
 inline void mark_object_alive(HeapObject* object) {

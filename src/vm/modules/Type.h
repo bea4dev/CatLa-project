@@ -20,7 +20,8 @@ namespace modules {
         std::string type_name;
         size_t runtime_type_id;
         vector<FieldInfo> field_infos;
-        vector<Field> fields;
+        vector<Field> add_fields;
+        vector<Field> all_fields;
         TypeInfo parent_info;
         Type* parent;
 

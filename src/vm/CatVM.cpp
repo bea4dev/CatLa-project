@@ -3,7 +3,7 @@
 #include <utility>
 #include <vm/parser/VMParser.h>
 #include <unordered_set>
-#include <CatLa.h>
+#include <algorithm>
 
 using namespace catla;
 using namespace heap;
@@ -146,18 +146,54 @@ Module* CatVM::load_module(const string& name) {
             auto info = type->parent_info;
             size_t import_module_index = info.import_index;
             auto type_name = info.type_name;
-            type->parent = mod->import_modules[import_module_index]->type_define_map[type_name];
+            if (!type_name.empty()) {
+                type->parent = mod->import_modules[import_module_index]->type_define_map[type_name];
+            }
 
             for (auto& field_info : type->field_infos) {
                 if (field_info.primitive_type != nullptr) {
                     Field field{field_info.field_name, modules::get_from_primitive_type(field_info.primitive_type)};
-                    type->fields.push_back(field);
+                    type->add_fields.push_back(field);
                 } else {
                     size_t import_index = field_info.user_def_type.import_index;
                     auto field_type_name = field_info.user_def_type.type_name;
                     auto* field_type = mod->import_modules[import_index]->type_define_map[field_type_name];
                     Field field{field_info.field_name, field_type};
-                    type->fields.push_back(field);
+                    type->add_fields.push_back(field);
+                }
+            }
+        }
+    }
+
+    for (auto& mod : loaded) {
+        for (auto& type: mod->type_defines) {
+            unordered_set<string> found_field_names;
+            unordered_set<Type*> found_types;
+            vector<Type*> parents;
+
+            Type* current_type = type;
+            while (true) {
+                if (current_type == nullptr) {
+                    break;
+                }
+
+                if (found_types.find(current_type) != found_types.end()) {
+                    return nullptr; //TODO - error handling
+                }
+                found_types.insert(current_type);
+                parents.push_back(current_type);
+                current_type = current_type->parent;
+            }
+
+            reverse(parents.begin(), parents.end());
+
+            for (auto& it_type : parents) {
+                for (auto& it_field : it_type->add_fields) {
+                    if (found_field_names.find(it_field.name) != found_field_names.end()) {
+                        return nullptr; //TODO - error handling
+                    }
+                    found_field_names.insert(it_field.name);
+                    type->all_fields.push_back(it_field);
                 }
             }
         }
@@ -195,7 +231,7 @@ Module* CatVM::load_module(const string& name) {
         auto type = mod->type_define_map[mod->name];
         if (type != nullptr) {
             size_t at = 0;
-            mod->module_fields = this->get_heap_allocator()->malloc(type, type->fields.size(), &at);
+            mod->module_fields = this->get_heap_allocator()->malloc(type, type->add_fields.size(), &at);
         }
     }
 

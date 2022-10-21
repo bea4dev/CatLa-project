@@ -13,3 +13,7 @@ void ReturnFunction::eval(void* vm_thread, void* module, uint64_t* registers, ui
     auto* function = thread->current_function;
     registers[function->registers_size] = registers[this->result_register];
 }
+
+void ReturnFunction::link(void *module, void* function) {
+    //None
+}

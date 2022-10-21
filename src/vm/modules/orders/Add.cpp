@@ -16,3 +16,7 @@ void AddInteger::eval(void* vm_thread, void *module, uint64_t* registers, uint64
         registers[this->result_register] = *((uint64_t*) &result);
     }
 }
+
+void AddInteger::link(void *module, void *function) {
+    //None
+}

@@ -117,28 +117,31 @@ HeapObject* create(int count) {
 
 using namespace benchmark;
 
-atomic_size_t a(40000);
-int b;
+size_t a = 0;
+int b = 0;
 
 void* func(void* args) {
     for (int s = 0; s < 10000; s++) {
-        if (a.fetch_sub(1, std::memory_order_seq_cst) == 1) {
-            b = 0;
-        } else {
-            b = 1;
+        auto* flag = (atomic_flag*) &a;
+        while (flag->test_and_set(std::memory_order_acquire)) {
+            //wait
         }
+        b++;
+        flag->clear(std::memory_order_release);
     }
     return nullptr;
 }
 
 bool f = true;
 size_t n = 0;
-size_t m = 0;
+atomic_size_t m(0);
 atomic_flag flag;
 
 int main()
 {
     std::cout << "Hello World!\n";
+
+    printf("%llu\n", sizeof(HeapObject));
 
     pthread_t pthread1;
     pthread_t pthread2;
@@ -154,30 +157,32 @@ int main()
     pthread_join(pthread2, nullptr);
     pthread_join(pthread3, nullptr);
     pthread_join(pthread4, nullptr);
-    printf("%llu | %d\n", a.load(), b);
+    printf("%d\n", b);
 
     Timing timing1;
     Timing timing2;
 
     timing1.start();
-    for (int s = 0; s < 10000000; s++) {
+    for (int s = 0; s < 4194303; s++) {
         if (f) {
             n++;
         }
     }
-    atomic_thread_fence(std::memory_order_release);
+    //atomic_thread_fence(std::memory_order_release);
     timing1.end();
 
+
+
     timing2.start();
-    while (flag.test_and_set(memory_order_acquire)) {
-        //lock
-    }
-    for (int s = 0; s < 10000000; s++) {
+    for (int s = 0; s < 4194303; s++) {
         if (f) {
+            while (flag.test_and_set(memory_order_acquire)) {
+                //lock
+            }
             m++;
+            flag.clear(memory_order_release);
         }
     }
-    flag.clear(memory_order_release);
     timing2.end();
 
     printf("%llu[ms]\n", timing1.get_sum_time());
