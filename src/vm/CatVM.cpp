@@ -4,6 +4,7 @@
 #include <vm/parser/VMParser.h>
 #include <unordered_set>
 #include <algorithm>
+#include <vm/modules/util/BitSet.h>
 
 using namespace catla;
 using namespace heap;
@@ -196,6 +197,15 @@ Module* CatVM::load_module(const string& name) {
                     type->all_fields.push_back(it_field);
                 }
             }
+
+            size_t field_length = type->all_fields.size();
+            auto* reference_fields = create_bitset(field_length);
+            for (size_t i = 0; i < field_length; i++) {
+                if (((Type*) type->all_fields[i].type)->primitive_type == nullptr) {
+                    set_flag(reference_fields, i, true);
+                }
+            }
+            type->reference_fields = reference_fields;
         }
     }
 

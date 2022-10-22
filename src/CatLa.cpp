@@ -117,31 +117,43 @@ HeapObject* create(int count) {
 
 using namespace benchmark;
 
+HeapObject* heap_object;
 size_t a = 0;
 int b = 0;
 
-void* func(void* args) {
+void* func1(void* args) {
     for (int s = 0; s < 10000; s++) {
-        auto* flag = (atomic_flag*) &a;
-        while (flag->test_and_set(std::memory_order_acquire)) {
-            //wait
-        }
+        object_lock(heap_object);
         b++;
-        flag->clear(std::memory_order_release);
+        object_unlock(heap_object);
     }
+    printf("OK!\n");
+    return nullptr;
+}
+
+void* func2(void* args) {
+    for (int s = 0; s < 10000; s++) {
+        object_lock(heap_object);
+        //printf("%d\n", b);
+        object_unlock(heap_object);
+    }
+    printf("OK!\n");
     return nullptr;
 }
 
 bool f = true;
-size_t n = 0;
-atomic_size_t m(0);
+volatile size_t n = 0;
+volatile atomic_size_t m(0);
 atomic_flag flag;
 
 int main()
 {
     std::cout << "Hello World!\n";
 
-    printf("%llu\n", sizeof(HeapObject));
+    setup_virtual_machine();
+
+    size_t in = 0;
+    heap_object = (HeapObject*) virtual_machine->get_heap_allocator()->malloc(nullptr, 2, &in);
 
     pthread_t pthread1;
     pthread_t pthread2;
@@ -149,10 +161,10 @@ int main()
     pthread_t pthread4;
     pthread_attr_t thread_attribute;
     pthread_attr_init(&thread_attribute);
-    pthread_create(&pthread1, &thread_attribute, func, nullptr);
-    pthread_create(&pthread2, &thread_attribute, func, nullptr);
-    pthread_create(&pthread3, &thread_attribute, func, nullptr);
-    pthread_create(&pthread4, &thread_attribute, func, nullptr);
+    pthread_create(&pthread1, &thread_attribute, func1, nullptr);
+    pthread_create(&pthread2, &thread_attribute, func2, nullptr);
+    pthread_create(&pthread3, &thread_attribute, func1, nullptr);
+    pthread_create(&pthread4, &thread_attribute, func2, nullptr);
     pthread_join(pthread1, nullptr);
     pthread_join(pthread2, nullptr);
     pthread_join(pthread3, nullptr);
@@ -163,32 +175,27 @@ int main()
     Timing timing2;
 
     timing1.start();
-    for (int s = 0; s < 4194303; s++) {
+    for (int s = 0; s < 10000000; s++) {
         if (f) {
             n++;
         }
     }
-    //atomic_thread_fence(std::memory_order_release);
     timing1.end();
 
 
 
     timing2.start();
-    for (int s = 0; s < 4194303; s++) {
+    for (int s = 0; s < 10000000; s++) {
         if (f) {
-            while (flag.test_and_set(memory_order_acquire)) {
-                //lock
-            }
+            object_lock(heap_object);
             m++;
-            flag.clear(memory_order_release);
+            object_unlock(heap_object);
         }
     }
     timing2.end();
 
     printf("%llu[ms]\n", timing1.get_sum_time());
     printf("%llu[ms]\n", timing2.get_sum_time());
-
-    setup_virtual_machine();
 
     global_heap = new HeapAllocator(1024, 1);
     /*for (int t = 0; t < 600; t++) {

@@ -121,7 +121,6 @@ void* HeapChunk::malloc(void* type_info, size_t index, size_t block_size) {
                     current_entry = block_entry;
                     current_entry_index = 0;
                 }
-                object_unlock(object);
                 continue;
             }
             mark_object_alive(object);

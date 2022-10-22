@@ -24,6 +24,7 @@ namespace modules {
         vector<Field> all_fields;
         TypeInfo parent_info;
         Type* parent;
+        uint8_t* reference_fields;
 
         Type(PrimitiveType* primitive_type, std::string type_name, size_t runtime_type_id, const vector<FieldInfo>& field_infos, TypeInfo parent_info);
 
