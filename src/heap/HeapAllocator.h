@@ -24,6 +24,16 @@ inline void object_unlock(HeapObject* object) {
     flag->clear(std::memory_order_release);
 }
 
+inline uint64_t get_object_field(HeapObject* object, size_t field_index) {
+    auto* ptr = (size_t*) object;
+    return ptr[field_index + 5];
+}
+
+inline void set_object_field(HeapObject* object, size_t field_index, uint64_t value) {
+    auto* ptr = (size_t*) object;
+    ptr[field_index + 5] = value;
+}
+
 inline void mark_object_alive(HeapObject* object) {
     object->flags |= 1;
 }

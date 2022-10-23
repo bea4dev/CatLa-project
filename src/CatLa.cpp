@@ -88,6 +88,28 @@ size_t test(size_t address) {
     return 0;
 }
 
+inline void set_object_field_atomic(HeapObject* parent, size_t field_index, HeapObject* field_object) {
+    field_object->count.fetch_add(1, std::memory_order_relaxed);
+
+    object_lock(parent);
+    auto* old_object = (HeapObject*) get_object_field(parent, field_index);
+    set_object_field(parent, field_index, (uint64_t) field_object);
+    object_unlock(parent);
+
+    if (old_object != nullptr) {
+        old_object->count.fetch_sub(1, std::memory_order_release);
+    }
+}
+
+inline HeapObject* get_object_field_atomic(HeapObject* parent, size_t field_index) {
+    object_lock(parent);
+    auto* field_object = (HeapObject*) get_object_field(parent, field_index);
+    field_object->count.fetch_add(1, std::memory_order_relaxed);
+    object_unlock(parent);
+    return field_object;
+}
+
+
 HeapAllocator* global_heap;
 size_t j = 0;
 size_t c = 0;
@@ -183,19 +205,49 @@ int main()
     timing1.end();
 
 
-
+    auto* allocator = virtual_machine->get_heap_allocator();
     timing2.start();
+
+    auto* list1 = (HeapObject*) calloc(1, sizeof(HeapObject) + (1000000 * 8));
+    auto* list2 = (HeapObject*) calloc(1, sizeof(HeapObject) + (1000000 * 8));
+
+    size_t at = 0;
+    //auto* object1 = (HeapObject*) allocator->malloc(nullptr, 0, &at);
+    //auto* object2 = (HeapObject*) allocator->malloc(nullptr, 0, &at);
+
+    for (size_t v = 0; v < 1000000; v++) {
+        auto* object1 = (HeapObject*) allocator->malloc(nullptr, 0, &at);
+        auto* object2 = (HeapObject*) allocator->malloc(nullptr, 0, &at);
+        object1->count.fetch_add(1, std::memory_order_relaxed);
+        object2->count.fetch_add(1, std::memory_order_relaxed);
+        set_object_field_atomic(list1, v, object1);
+        set_object_field_atomic(list2, v, object2);
+    }
+
+    for (size_t v = 0; v < 1000000; v++) {
+        auto* object1 = get_object_field_atomic(list1, v);
+        auto* object2 = get_object_field_atomic(list2, v);
+        set_object_field_atomic(list1, v, object2);
+        set_object_field_atomic(list2, v, object1);
+        object1->count.fetch_sub(1, std::memory_order_relaxed);
+        object2->count.fetch_sub(1, std::memory_order_relaxed);
+    }
+
+    list1->count.fetch_sub(1, std::memory_order_release);
+    list2->count.fetch_sub(1, std::memory_order_release);
+
+    /*
     for (int s = 0; s < 10000000; s++) {
         if (f) {
             object_lock(heap_object);
             m++;
             object_unlock(heap_object);
         }
-    }
+    }*/
     timing2.end();
 
     printf("%llu[ms]\n", timing1.get_sum_time());
-    printf("%llu[ms]\n", timing2.get_sum_time());
+    printf("list %llu[ms]\n", timing2.get_sum_time());
 
     global_heap = new HeapAllocator(1024, 1);
     /*for (int t = 0; t < 600; t++) {
