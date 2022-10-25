@@ -68,3 +68,11 @@ public:
     void* malloc(void* type_info, size_t fields_length, size_t* chunk_search_start_index);
     void create_new_chunk(size_t cells_size);
 };
+
+typedef struct {
+    size_t current_location;
+} ThreadHeapChunk;
+
+class ThreadHeapAllocator {
+
+};

@@ -89,7 +89,7 @@ size_t test(size_t address) {
 }
 
 inline void set_object_field_atomic(HeapObject* parent, size_t field_index, HeapObject* field_object) {
-    field_object->count.fetch_add(1, std::memory_order_relaxed);
+    //field_object->count.fetch_add(1, std::memory_order_relaxed);
 
     object_lock(parent);
     auto* old_object = (HeapObject*) get_object_field(parent, field_index);
@@ -97,15 +97,22 @@ inline void set_object_field_atomic(HeapObject* parent, size_t field_index, Heap
     object_unlock(parent);
 
     if (old_object != nullptr) {
-        old_object->count.fetch_sub(1, std::memory_order_release);
+        //old_object->count.fetch_sub(1, std::memory_order_release);
     }
 }
 
 inline HeapObject* get_object_field_atomic(HeapObject* parent, size_t field_index) {
-    object_lock(parent);
-    auto* field_object = (HeapObject*) get_object_field(parent, field_index);
-    field_object->count.fetch_add(1, std::memory_order_relaxed);
-    object_unlock(parent);
+    HeapObject* field_object;
+    while (true) {
+        object_lock(parent);
+        field_object = (HeapObject *) get_object_field(parent, field_index);
+        //field_object->count.fetch_add(1, std::memory_order_relaxed);
+        object_unlock(parent);
+
+        if (field_object != (HeapObject*) 1) {
+            break;
+        }
+    }
     return field_object;
 }
 
@@ -165,8 +172,8 @@ void* func2(void* args) {
 
 bool f = true;
 volatile size_t n = 0;
-volatile atomic_size_t m(0);
-atomic_flag flag;
+volatile size_t m = 0;
+volatile atomic_size_t flag;
 
 int main()
 {
@@ -198,28 +205,37 @@ int main()
 
     timing1.start();
     for (int s = 0; s < 10000000; s++) {
-        if (f) {
-            n++;
-        }
+        n++;
     }
     timing1.end();
 
 
     auto* allocator = virtual_machine->get_heap_allocator();
     timing2.start();
+    /*
+    for (int s = 0; s < 10000000; s++) {
+        while (true) {
+            size_t previous = flag.exchange(1, std::memory_order_relaxed);
+            if (previous != 1) {
+                break;
+            }
+        }
+        m++;
+        flag.exchange(0, std::memory_order_relaxed);
+    }*/
 
     auto* list1 = (HeapObject*) calloc(1, sizeof(HeapObject) + (1000000 * 8));
     auto* list2 = (HeapObject*) calloc(1, sizeof(HeapObject) + (1000000 * 8));
 
     size_t at = 0;
-    //auto* object1 = (HeapObject*) allocator->malloc(nullptr, 0, &at);
-    //auto* object2 = (HeapObject*) allocator->malloc(nullptr, 0, &at);
+    auto* object1 = (HeapObject*) allocator->malloc(nullptr, 0, &at);
+    auto* object2 = (HeapObject*) allocator->malloc(nullptr, 0, &at);
 
     for (size_t v = 0; v < 1000000; v++) {
-        auto* object1 = (HeapObject*) allocator->malloc(nullptr, 0, &at);
-        auto* object2 = (HeapObject*) allocator->malloc(nullptr, 0, &at);
-        object1->count.fetch_add(1, std::memory_order_relaxed);
-        object2->count.fetch_add(1, std::memory_order_relaxed);
+        //auto* object1 = (HeapObject*) allocator->malloc(nullptr, 0, &at);
+        //auto* object2 = (HeapObject*) allocator->malloc(nullptr, 0, &at);
+        //object1->count.fetch_add(1, std::memory_order_relaxed);
+        //object2->count.fetch_add(1, std::memory_order_relaxed);
         set_object_field_atomic(list1, v, object1);
         set_object_field_atomic(list2, v, object2);
     }
@@ -229,8 +245,8 @@ int main()
         auto* object2 = get_object_field_atomic(list2, v);
         set_object_field_atomic(list1, v, object2);
         set_object_field_atomic(list2, v, object1);
-        object1->count.fetch_sub(1, std::memory_order_relaxed);
-        object2->count.fetch_sub(1, std::memory_order_relaxed);
+        //object1->count.fetch_sub(1, std::memory_order_relaxed);
+        //object2->count.fetch_sub(1, std::memory_order_relaxed);
     }
 
     list1->count.fetch_sub(1, std::memory_order_release);
