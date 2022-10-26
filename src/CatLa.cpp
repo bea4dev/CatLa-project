@@ -228,12 +228,12 @@ int main()
     auto* list2 = (HeapObject*) calloc(1, sizeof(HeapObject) + (1000000 * 8));
 
     size_t at = 0;
-    auto* object1 = (HeapObject*) allocator->malloc(nullptr, 0, &at);
-    auto* object2 = (HeapObject*) allocator->malloc(nullptr, 0, &at);
+    //auto* object1 = (HeapObject*) allocator->malloc(nullptr, 0, &at);
+    //auto* object2 = (HeapObject*) allocator->malloc(nullptr, 0, &at);
 
     for (size_t v = 0; v < 1000000; v++) {
-        //auto* object1 = (HeapObject*) allocator->malloc(nullptr, 0, &at);
-        //auto* object2 = (HeapObject*) allocator->malloc(nullptr, 0, &at);
+        auto* object1 = (HeapObject*) allocator->malloc(nullptr, 0, &at);
+        auto* object2 = (HeapObject*) allocator->malloc(nullptr, 0, &at);
         //object1->count.fetch_add(1, std::memory_order_relaxed);
         //object2->count.fetch_add(1, std::memory_order_relaxed);
         set_object_field_atomic(list1, v, object1);
@@ -265,7 +265,7 @@ int main()
     printf("%llu[ms]\n", timing1.get_sum_time());
     printf("list %llu[ms]\n", timing2.get_sum_time());
 
-    global_heap = new HeapAllocator(1024, 1);
+    global_heap = new HeapAllocator(false, 1024, 1);
     /*for (int t = 0; t < 600; t++) {
         global_heap->create_new_chunk(1024);
     }*/

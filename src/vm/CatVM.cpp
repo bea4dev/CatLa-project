@@ -15,7 +15,7 @@ namespace catla {
 }
 
 CatVM::CatVM() {
-    this->heap_allocator = new HeapAllocator(1024, 1);
+    this->heap_allocator = new HeapAllocator(false, 1024, 1);
 }
 
 uint64_t CatVM::run_function(VMThread* vm_thread, Module* module, Function* function, uint64_t* arguments) {

@@ -42,7 +42,7 @@ inline void mark_object_alive(HeapObject* object) {
 typedef struct {
     uint8_t* entry_position;
     bool empty;
-    size_t current_automaton_index;
+    size_t current_location;
 } BlockInfo;
 
 class HeapChunk {
@@ -53,18 +53,19 @@ public:
 public:
     explicit HeapChunk(size_t cells_size);
     ~HeapChunk();
-    void* malloc(void* type_info, size_t index, size_t block_size);
+    void* malloc(void* type_info, size_t index, size_t block_size, bool is_thread_safe);
 };
 
 class HeapAllocator {
 private:
+    bool is_thread_safe;
     size_t number_of_chunks;
     HeapChunk** chunks;
     SpinLock lock;
     size_t chunks_cells_size;
 
 public:
-    HeapAllocator(size_t chunks_cells_size, size_t number_of_chunks);
+    HeapAllocator(bool is_thread_safe, size_t chunks_cells_size, size_t number_of_chunks);
     void* malloc(void* type_info, size_t fields_length, size_t* chunk_search_start_index);
     void create_new_chunk(size_t cells_size);
 };

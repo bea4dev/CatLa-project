@@ -74,7 +74,7 @@ HeapChunk::~HeapChunk() {
 }
 
 
-void* HeapChunk::malloc(void* type_info, size_t index, size_t block_size) {
+void* HeapChunk::malloc(void* type_info, size_t index, size_t block_size, bool is_thread_safe) {
     size_t cells_size_ = this->cells_size;
 
     while (true) {
@@ -96,9 +96,8 @@ void* HeapChunk::malloc(void* type_info, size_t index, size_t block_size) {
 
         uint8_t* block_entry = block_info->entry_position;
 
-        size_t current_entry_index = block_info->current_automaton_index;
+        size_t current_entry_index = block_info->current_location;
         uint8_t* current_entry = block_entry + (current_entry_index * block_size);
-        //printf("index : %llu | automaton_index : %llu\n", index, current_entry_index);
 
         for (size_t i = 0; i < cells_size_; i++) {
             auto* object = (HeapObject*) current_entry;
@@ -112,31 +111,44 @@ void* HeapChunk::malloc(void* type_info, size_t index, size_t block_size) {
                 continue;
             }
 
-            object_lock(object);
-            if (object->flags != 0) {
-                object_unlock(object);
-                current_entry += block_size;
-                current_entry_index++;
-                if (current_entry_index == cells_size_) {
-                    current_entry = block_entry;
-                    current_entry_index = 0;
+            if (is_thread_safe) {
+                object_lock(object);
+                if (object->flags != 0) {
+                    object_unlock(object);
+                    current_entry += block_size;
+                    current_entry_index++;
+                    if (current_entry_index == cells_size_) {
+                        current_entry = block_entry;
+                        current_entry_index = 0;
+                    }
+                    continue;
                 }
-                continue;
+                mark_object_alive(object);
+                object_unlock(object);
+            } else {
+                if (object->flags != 0) {
+                    current_entry += block_size;
+                    current_entry_index++;
+                    if (current_entry_index == cells_size_) {
+                        current_entry = block_entry;
+                        current_entry_index = 0;
+                    }
+                    continue;
+                }
+                mark_object_alive(object);
             }
-            mark_object_alive(object);
-            object_unlock(object);
-            //printf("index : %llu, size%llu\n", index, block_size);
+
             current_entry_index++;
             if (current_entry_index == cells_size_) {
                 current_entry_index = 0;
             }
-            block_info->current_automaton_index = current_entry_index;
+            block_info->current_location = current_entry_index;
 
             object->type_info = type_info;
 
             return object;
         }
-        block_info->current_automaton_index = current_entry_index;
+        block_info->current_location = current_entry_index;
         block_info->empty = false;
 
         index++;
@@ -153,7 +165,8 @@ void* HeapChunk::malloc(void* type_info, size_t index, size_t block_size) {
 }
 
 
-HeapAllocator::HeapAllocator(size_t chunks_cells_size, size_t number_of_chunks) {
+HeapAllocator::HeapAllocator(bool is_thread_safe, size_t chunks_cells_size, size_t number_of_chunks) {
+    this->is_thread_safe = is_thread_safe;
     this->chunks_cells_size = chunks_cells_size;
     this->number_of_chunks = number_of_chunks;
     this->chunks = new HeapChunk*[number_of_chunks];
@@ -215,26 +228,40 @@ void* HeapAllocator::malloc(void* type_info, size_t fields_length, size_t* chunk
 
     size_t current_chunk_index = *chunk_search_start_index;
 
-    this->lock.lock();
-    HeapChunk** heap_chunks = this->chunks;
-    size_t cs = this->number_of_chunks;
-    this->lock.unlock();
+    bool thread_safe = this->is_thread_safe;
+    HeapChunk** heap_chunks;
+    size_t cs;
+    if (thread_safe) {
+        this->lock.lock();
+        heap_chunks = this->chunks;
+        cs = this->number_of_chunks;
+        this->lock.unlock();
+    } else {
+        heap_chunks = this->chunks;
+        cs = this->number_of_chunks;
+    }
 
     while (true) {
         size_t i = 0;
         while (true) {
             if (i == cs) {
                 create_new_chunk(this->chunks_cells_size);
-                this->lock.lock();
-                heap_chunks = this->chunks;
-                cs = this->number_of_chunks;
-                this->lock.unlock();
+
+                if (thread_safe) {
+                    this->lock.lock();
+                    heap_chunks = this->chunks;
+                    cs = this->number_of_chunks;
+                    this->lock.unlock();
+                } else {
+                    heap_chunks = this->chunks;
+                    cs = this->number_of_chunks;
+                }
                 break;
             }
 
             HeapChunk* chunk = heap_chunks[current_chunk_index];
 
-            void* address = chunk->malloc(type_info, index, block_size);
+            void* address = chunk->malloc(type_info, index, block_size, thread_safe);
             if (address != nullptr) {
                 *chunk_search_start_index = current_chunk_index;
                 return address;
@@ -255,7 +282,9 @@ void* HeapAllocator::malloc(void* type_info, size_t fields_length, size_t* chunk
 void HeapAllocator::create_new_chunk(size_t cells_size) {
     auto* chunk = new HeapChunk(cells_size);
 
-    this->lock.lock();
+    bool thread_safe = this->is_thread_safe;
+
+    if (thread_safe) this->lock.lock();
     size_t chunks_size_old = this->number_of_chunks;
     size_t chunks_size_new = chunks_size_old + 1;
 
@@ -268,7 +297,7 @@ void HeapAllocator::create_new_chunk(size_t cells_size) {
 
     this->chunks = heap_chunks_new;
     this->number_of_chunks = chunks_size_new;
-    this->lock.unlock();
+    if (thread_safe) this->lock.unlock();
 }
 
 
