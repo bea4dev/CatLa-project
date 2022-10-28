@@ -17,3 +17,9 @@ public:
     virtual void link(void* module, void* function) = 0;
 };
 
+
+enum OwnershipOrder {
+    clone,
+    borrow,
+    move
+};

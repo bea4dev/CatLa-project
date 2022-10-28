@@ -126,7 +126,7 @@ void* HeapChunk::malloc(void* type_info, size_t index, size_t block_size, bool i
                 mark_object_alive(object);
                 object_unlock(object);
             } else {
-                if (object->flags != 0) {
+                if (((atomic_size_t*) &object->flags)->load(std::memory_order_acquire) != 0) {
                     current_entry += block_size;
                     current_entry_index++;
                     if (current_entry_index == cells_size_) {
@@ -145,6 +145,7 @@ void* HeapChunk::malloc(void* type_info, size_t index, size_t block_size, bool i
             block_info->current_location = current_entry_index;
 
             object->type_info = type_info;
+            *((size_t*) &object->count) = 1;
 
             return object;
         }
