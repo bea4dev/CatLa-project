@@ -450,7 +450,7 @@ vector<Function*> parser::parse_function(const char* code, size_t code_length, s
                 }
             }
 
-            auto label_blocks = parser::parse_label_blocks(code, code_length, &current_position);
+            auto label_blocks = parser::parse_label_blocks(code, code_length, &current_position, const_values);
 
             function_map[index] = new Function(name, variables_size, registers_size, label_blocks, return_type_info, argument_types);
         }
@@ -476,7 +476,7 @@ vector<Function*> parser::parse_function(const char* code, size_t code_length, s
 }
 
 
-vector<LabelBlock*> parser::parse_label_blocks(const char* code, size_t code_length, size_t* position) {
+vector<LabelBlock*> parser::parse_label_blocks(const char* code, size_t code_length, size_t* position, ConstValue* const_values) {
     size_t current_position = *position;
 
     regex INFO_REG(R"(label:(\w+))");
@@ -501,7 +501,7 @@ vector<LabelBlock*> parser::parse_label_blocks(const char* code, size_t code_len
             throw ParseException();
         } else {
             auto label_name = results[1].str();
-            auto orders = parser::parse_orders(code, code_length, &current_position);
+            auto orders = parser::parse_orders(code, code_length, &current_position, const_values);
 
             label_blocks.push_back(new LabelBlock(label_name, orders));
         }
@@ -513,7 +513,7 @@ vector<LabelBlock*> parser::parse_label_blocks(const char* code, size_t code_len
 }
 
 
-vector<Order*> parser::parse_orders(const char* code, size_t code_length, size_t* position) {
+vector<Order*> parser::parse_orders(const char* code, size_t code_length, size_t* position, ConstValue* const_values) {
     size_t current_position = *position;
 
     regex ASSIGNMENT_REG(R"((.+)=(.+))");
@@ -555,7 +555,7 @@ vector<Order*> parser::parse_orders(const char* code, size_t code_length, size_t
                 i++;
             }
 
-            auto* order = parser::parse_order(assignment_register, order_name, args);
+            auto* order = parser::parse_order(assignment_register, order_name, args, const_values);
             orders.push_back(order);
         } else {
             auto order_itr = sregex_token_iterator(line.begin(), line.end(), ARGS_SEPARATE, -1);
@@ -574,7 +574,7 @@ vector<Order*> parser::parse_orders(const char* code, size_t code_length, size_t
                 i++;
             }
 
-            auto* order = parser::parse_order(SIZE_MAX, order_name, args);
+            auto* order = parser::parse_order(SIZE_MAX, order_name, args, const_values);
             orders.push_back(order);
         }
     }
@@ -585,7 +585,7 @@ vector<Order*> parser::parse_orders(const char* code, size_t code_length, size_t
 }
 
 
-Order* parser::parse_order(size_t assignment_register, const string& order_name, vector<string> args) {
+Order* parser::parse_order(size_t assignment_register, const string& order_name, vector<string> args, ConstValue* const_values) {
     if (assignment_register == SIZE_MAX) {
         if (order_name == "jump_to") {
             if (args.empty()) {
@@ -600,6 +600,19 @@ Order* parser::parse_order(size_t assignment_register, const string& order_name,
             }
             size_t result_register = parser::parse_register_or_variable_number(args[0]);
             return new ReturnFunction(result_register);
+        }
+
+        if (order_name == "set_field") {
+            if (args.size() < 5) {
+                throw ParseException();
+            }
+            size_t parent_object_register_index = parser::parse_register_or_variable_number(args[0]);
+            size_t field_object_register_index = parser::parse_register_or_variable_number(args[1]);
+            bool borrow_lock = parser::parse_bool(args[2]);
+            size_t using_type_index = parser::parse_using_type_index(args[3]);
+            size_t field_name_const_value_index = parser::parse_const_value_index(args[4]);
+            string field_name = parser::get_const_value_as_string(const_values, field_name_const_value_index);
+            return new SetObjectFieldOwnership(parent_object_register_index, field_object_register_index, using_type_index, field_name, 0, borrow_lock);
         }
     } else {
         if (order_name == "const") {
@@ -628,6 +641,10 @@ Order* parser::parse_order(size_t assignment_register, const string& order_name,
             size_t right = parser::parse_register_or_variable_number(args[2]);
             return new AddInteger(type, assignment_register, left, right);
         }
+
+        if (order_name == "get_field") {
+
+        }
     }
 
     throw ParseException();
@@ -641,6 +658,38 @@ size_t parser::parse_register_or_variable_number(const string& str) {
         return stoull(results[2].str());
     } else if (str == "@void") {
         return SIZE_MAX;
+    }
+    throw ParseException();
+}
+
+
+size_t parser::parse_using_type_index(const string &str) {
+    regex REG1(R"(type#(\d+))");
+    regex REG2(R"((\d+))");
+    smatch results;
+    if (regex_match(str, results, REG1) || regex_match(str, results, REG2)) {
+        return stoull(results[1].str());
+    }
+    throw ParseException();
+}
+
+
+size_t parser::parse_const_value_index(const string &str) {
+    regex REG1(R"(const#(\d+))");
+    regex REG2(R"((\d+))");
+    smatch results;
+    if (regex_match(str, results, REG1) || regex_match(str, results, REG2)) {
+        return stoull(results[1].str());
+    }
+    throw ParseException();
+}
+
+
+bool parser::parse_bool(const string &str) {
+    if (str == "true") {
+        return true;
+    } else if (str == "false") {
+        return false;
     }
     throw ParseException();
 }

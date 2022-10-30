@@ -87,6 +87,9 @@ VMThread* CatVM::create_thread(size_t stack_size) {
     this->threads.push_back(thread);
     this->threads_manage_lock.unlock();
 
+    thread->heap_allocator = new HeapAllocator(false, 1024, 1);
+    thread->allocator_search_start_index = 0;
+
     return thread;
 }
 
@@ -242,6 +245,16 @@ Module* CatVM::load_module(const string& name) {
         if (type != nullptr) {
             size_t at = 0;
             mod->module_fields = this->get_heap_allocator()->malloc(type, type->add_fields.size(), &at);
+        }
+    }
+
+    for (auto& mod : loaded) {
+        for (auto& function : mod->functions) {
+            for (auto& label : function->label_blocks) {
+                for (auto& order : label->orders) {
+                    order->link(mod, function);
+                }
+            }
         }
     }
 

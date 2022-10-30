@@ -34,13 +34,19 @@ namespace parser {
 
     vector<Function*> parse_function(const char* code, size_t code_length, size_t* position, ConstValue* const_values);
 
-    vector<LabelBlock*> parse_label_blocks(const char* code, size_t code_length, size_t* position);
+    vector<LabelBlock*> parse_label_blocks(const char* code, size_t code_length, size_t* position, ConstValue* const_values);
 
-    vector<Order*> parse_orders(const char* code, size_t code_length, size_t* position);
+    vector<Order*> parse_orders(const char* code, size_t code_length, size_t* position, ConstValue* const_values);
 
-    Order* parse_order(size_t assignment_register, const string& order_name, vector<string> args);
+    Order* parse_order(size_t assignment_register, const string& order_name, vector<string> args, ConstValue* const_values);
 
     size_t parse_register_or_variable_number(const string& str);
+
+    size_t parse_using_type_index(const string& str);
+
+    size_t parse_const_value_index(const string& str);
+
+    bool parse_bool(const string& str);
 
     void move_until(const char* code, size_t code_length, size_t* position, const char* chars, size_t chars_size, string* word);
 

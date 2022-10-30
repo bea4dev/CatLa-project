@@ -249,9 +249,6 @@ int main()
         //object2->count.fetch_sub(1, std::memory_order_relaxed);
     }
 
-    list1->count.fetch_sub(1, std::memory_order_release);
-    list2->count.fetch_sub(1, std::memory_order_release);
-
     /*
     for (int s = 0; s < 10000000; s++) {
         if (f) {

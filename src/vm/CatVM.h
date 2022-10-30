@@ -27,6 +27,8 @@ namespace catla {
         LabelBlock* current_label_block;
         size_t current_order_index;
         bool return_function;
+        HeapAllocator* heap_allocator;
+        size_t allocator_search_start_index;
     } VMThread;
 
 

@@ -31,7 +31,14 @@ add_executable(catla
         src/vm/modules/Function.cpp
         src/vm/modules/orders/Order.cpp
         src/vm/modules/orders/GetConst.cpp
-        src/vm/modules/orders/Add.cpp src/vm/modules/orders/Orders.h src/vm/modules/orders/Jump.cpp src/vm/modules/orders/Jump.h src/vm/PrimitiveType.h src/vm/PrimitiveType.cpp src/vm/modules/orders/GetArgument.cpp src/vm/modules/orders/GetArgument.h src/vm/modules/orders/ReturnFunction.cpp src/vm/modules/orders/ReturnFunction.h src/vm/modules/Field.h src/vm/modules/orders/GetFieldValue.cpp src/vm/modules/orders/GetFieldValue.h src/vm/modules/util/BitSet.h src/vm/modules/orders/SetFieldValue.cpp src/vm/modules/orders/SetFieldValue.h)
+        src/vm/modules/orders/Add.cpp
+        src/vm/modules/orders/Jump.cpp
+        src/vm/PrimitiveType.cpp
+        src/vm/modules/orders/GetArgument.cpp
+        src/vm/modules/orders/ReturnFunction.cpp
+        src/vm/modules/orders/GetFieldValue.cpp
+        src/vm/modules/orders/SetFieldValue.cpp
+        src/vm/modules/orders/New.cpp)
 
 llvm_map_components_to_libnames(llvm_libs
         Core
