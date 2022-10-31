@@ -123,7 +123,7 @@ void* HeapChunk::malloc(void* type_info, size_t index, size_t block_size, bool i
                     }
                     continue;
                 }
-                mark_object_alive(object);
+                mark_object_alive_non_lock(object);
                 object_unlock(object);
             } else {
                 if (((atomic_size_t*) &object->flags)->load(std::memory_order_acquire) != 0) {
@@ -135,7 +135,7 @@ void* HeapChunk::malloc(void* type_info, size_t index, size_t block_size, bool i
                     }
                     continue;
                 }
-                mark_object_alive(object);
+                mark_object_alive_non_lock(object);
             }
 
             current_entry_index++;
