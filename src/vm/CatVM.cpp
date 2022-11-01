@@ -262,3 +262,19 @@ Module* CatVM::load_module(const string& name) {
 
     return target_module;
 }
+
+void CatVM::add_heap_allocator_chunk(HeapChunk* chunk) {
+    this->heap_chunk_list_lock.lock();
+    this->heap_chunk_list.push_back(chunk);
+    this->heap_chunk_list_lock.unlock();
+}
+
+vector<HeapChunk*> CatVM::clone_heap_chunk_list() {
+    this->heap_chunk_list_lock.lock();
+    vector<HeapChunk*> new_chunk_list;
+    for (auto& chunk : this->heap_chunk_list) {
+        new_chunk_list.push_back(chunk);
+    }
+    this->heap_chunk_list_lock.unlock();
+    return new_chunk_list;
+}

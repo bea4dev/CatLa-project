@@ -38,7 +38,7 @@ add_executable(catla
         src/vm/modules/orders/ReturnFunction.cpp
         src/vm/modules/orders/GetFieldValue.cpp
         src/vm/modules/orders/SetFieldValue.cpp
-        src/vm/modules/orders/New.cpp src/gc/GC.h)
+        src/vm/modules/orders/New.cpp src/gc/GC.h src/gc/GC.cpp)
 
 llvm_map_components_to_libnames(llvm_libs
         Core

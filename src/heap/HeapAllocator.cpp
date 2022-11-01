@@ -101,7 +101,7 @@ void* HeapChunk::malloc(void* type_info, size_t index, size_t block_size, bool i
 
         for (size_t i = 0; i < cells_size_; i++) {
             auto* object = (HeapObject*) current_entry;
-            if (object->flags != 0) {
+            if (object->flag != 0) {
                 current_entry += block_size;
                 current_entry_index++;
                 if (current_entry_index == cells_size_) {
@@ -111,32 +111,16 @@ void* HeapChunk::malloc(void* type_info, size_t index, size_t block_size, bool i
                 continue;
             }
 
-            if (is_thread_safe) {
-                object_lock(object);
-                if (object->flags != 0) {
-                    object_unlock(object);
-                    current_entry += block_size;
-                    current_entry_index++;
-                    if (current_entry_index == cells_size_) {
-                        current_entry = block_entry;
-                        current_entry_index = 0;
-                    }
-                    continue;
+            if (object->flag.load(std::memory_order_acquire) != 0) {
+                current_entry += block_size;
+                current_entry_index++;
+                if (current_entry_index == cells_size_) {
+                    current_entry = block_entry;
+                    current_entry_index = 0;
                 }
-                mark_object_alive_non_lock(object);
-                object_unlock(object);
-            } else {
-                if (((atomic_size_t*) &object->flags)->load(std::memory_order_acquire) != 0) {
-                    current_entry += block_size;
-                    current_entry_index++;
-                    if (current_entry_index == cells_size_) {
-                        current_entry = block_entry;
-                        current_entry_index = 0;
-                    }
-                    continue;
-                }
-                mark_object_alive_non_lock(object);
+                continue;
             }
+            mark_object_alive_non_lock(object);
 
             current_entry_index++;
             if (current_entry_index == cells_size_) {

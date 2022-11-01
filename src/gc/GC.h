@@ -45,11 +45,11 @@ inline void increase_reference_count(HeapObject* object) {
     object->count.fetch_add(1, std::memory_order_relaxed);
 }
 
-inline void decrease_reference_count(VMThread* thread, HeapObject* object) {
+inline void decrease_reference_count(HeapObject* object) {
     size_t previous_count = object->count.fetch_sub(1, std::memory_order_release);
     if (previous_count == 2) {
         //Suspect cycles
-
+        object->flag.store(2, std::memory_order_release);
         return;
     } else if (previous_count != 1) {
         return;
@@ -72,6 +72,9 @@ inline void decrease_reference_count(VMThread* thread, HeapObject* object) {
             remove_objects.push(field_object);
         }
 
+        size_t expected = 1;
+        current_object->flag.compare_exchange_strong(expected, 0, std::memory_order_seq_cst);
+
         if (remove_objects.empty()) {
             break;
         }
@@ -80,6 +83,4 @@ inline void decrease_reference_count(VMThread* thread, HeapObject* object) {
     }
 }
 
-inline void collect_cycles(VMThread* thread) {
-
-}
+void collect_cycles(CatVM* vm);

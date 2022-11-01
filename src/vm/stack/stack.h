@@ -3,7 +3,7 @@
 
 using namespace catla;
 
-namespace stack {
+namespace util {
 
     extern size_t get_available_stack_size(VMThread* vm_thread);
 

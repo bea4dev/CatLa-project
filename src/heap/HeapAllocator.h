@@ -6,7 +6,7 @@ using namespace concurrent;
 
 typedef struct {
     atomic_size_t count; //8byte
-    size_t flags; //8byte
+    atomic_size_t flag; //8byte
     size_t lock_flag; //8byte
     size_t field_length; //8byte
     void* type_info; //8byte
@@ -35,7 +35,7 @@ inline void set_object_field(HeapObject* object, size_t field_index, uint64_t va
 }
 
 inline void mark_object_alive_non_lock(HeapObject* object) {
-    object->flags |= 1;
+    object->flag |= 1;
 }
 
 
@@ -68,12 +68,4 @@ public:
     HeapAllocator(bool is_thread_safe, size_t chunks_cells_size, size_t number_of_chunks);
     void* malloc(void* type_info, size_t fields_length, size_t* chunk_search_start_index);
     void create_new_chunk(size_t cells_size);
-};
-
-typedef struct {
-    size_t current_location;
-} ThreadHeapChunk;
-
-class ThreadHeapAllocator {
-
 };
