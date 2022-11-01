@@ -45,8 +45,13 @@ inline void increase_reference_count(HeapObject* object) {
     object->count.fetch_add(1, std::memory_order_relaxed);
 }
 
-inline void decrease_reference_count(HeapObject* object) {
-    if (object->count.fetch_sub(1, std::memory_order_release) != 1) {
+inline void decrease_reference_count(VMThread* thread, HeapObject* object) {
+    size_t previous_count = object->count.fetch_sub(1, std::memory_order_release);
+    if (previous_count == 2) {
+        //Suspect cycles
+
+        return;
+    } else if (previous_count != 1) {
         return;
     }
 
@@ -73,4 +78,8 @@ inline void decrease_reference_count(HeapObject* object) {
         current_object = remove_objects.top();
         remove_objects.pop();
     }
+}
+
+inline void collect_cycles(VMThread* thread) {
+
 }
