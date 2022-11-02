@@ -1,5 +1,8 @@
 #include "HeapAllocator.h"
 #include <util/Benchmark.h>
+#include <vm/CatVM.h>
+
+using namespace catla;
 
 #define BLOCK_SIZE0 32
 #define BLOCK_SIZE1 40
@@ -150,7 +153,8 @@ void* HeapChunk::malloc(void* type_info, size_t index, size_t block_size, bool i
 }
 
 
-HeapAllocator::HeapAllocator(bool is_thread_safe, size_t chunks_cells_size, size_t number_of_chunks) {
+HeapAllocator::HeapAllocator(void* vm, bool is_thread_safe, size_t chunks_cells_size, size_t number_of_chunks) {
+    this->vm = vm;
     this->is_thread_safe = is_thread_safe;
     this->chunks_cells_size = chunks_cells_size;
     this->number_of_chunks = number_of_chunks;
@@ -266,6 +270,8 @@ void* HeapAllocator::malloc(void* type_info, size_t fields_length, size_t* chunk
 
 void HeapAllocator::create_new_chunk(size_t cells_size) {
     auto* chunk = new HeapChunk(cells_size);
+    auto* virtual_machine = (CatVM*) this->vm;
+    virtual_machine->add_heap_allocator_chunk(chunk);
 
     bool thread_safe = this->is_thread_safe;
 

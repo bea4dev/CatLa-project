@@ -58,6 +58,7 @@ public:
 
 class HeapAllocator {
 private:
+    void* vm;
     bool is_thread_safe;
     size_t number_of_chunks;
     HeapChunk** chunks;
@@ -65,7 +66,7 @@ private:
     size_t chunks_cells_size;
 
 public:
-    HeapAllocator(bool is_thread_safe, size_t chunks_cells_size, size_t number_of_chunks);
+    HeapAllocator(void* vm, bool is_thread_safe, size_t chunks_cells_size, size_t number_of_chunks);
     void* malloc(void* type_info, size_t fields_length, size_t* chunk_search_start_index);
     void create_new_chunk(size_t cells_size);
 };

@@ -1,11 +1,29 @@
 #pragma once
 
 #include <heap/HeapAllocator.h>
-#include <vm/CatVM.h>
 #include <stack>
+#include <util/Concurrent.h>
 
-using namespace catla;
 using namespace std;
+using namespace concurrent;
+
+namespace gc {
+    class CycleCollector {
+    private:
+        void* vm;
+        SpinLock list_lock;
+        vector<void*> suspected_object_list;
+
+    public:
+        explicit CycleCollector(void* vm);
+        inline void add_suspected_object(HeapObject* object) {
+            list_lock.lock();
+            suspected_object_list.push_back(object);
+            list_lock.unlock();
+        }
+        void collect_cycles();
+    };
+}
 
 inline HeapObject* clone_object_field_ownership(HeapObject* parent_object, size_t field_index) {
     auto* fields = (uint64_t*) (parent_object + 1);
@@ -82,5 +100,3 @@ inline void decrease_reference_count(HeapObject* object) {
         remove_objects.pop();
     }
 }
-
-void collect_cycles(CatVM* vm);

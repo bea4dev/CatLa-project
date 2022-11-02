@@ -117,20 +117,19 @@ inline HeapObject* get_object_field_atomic(HeapObject* parent, size_t field_inde
 }
 
 
-HeapAllocator* global_heap;
 size_t j = 0;
 size_t c = 0;
 
 HeapObject* create(int count) {
     if (count > 20) {
         c++;
-        return (HeapObject*) global_heap->malloc(nullptr, 2, &j);
+        return (HeapObject*) virtual_machine->get_heap_allocator()->malloc(nullptr, 2, &j);
         //return (HeapObject*) calloc(1, 40 + 16);
         //return (HeapObject*) malloc(40 + 16);
     }
     count++;
     c++;
-    auto* parent = (size_t**) global_heap->malloc(nullptr, 2, &j);
+    auto* parent = (size_t**) virtual_machine->get_heap_allocator()->malloc(nullptr, 2, &j);
     //auto* parent = (size_t**) calloc(1, 40 + 16);
     //auto* parent = (size_t**) malloc(40 + 16);
     auto* child1 = create(count);
@@ -262,7 +261,6 @@ int main()
     printf("%llu[ms]\n", timing1.get_sum_time());
     printf("list %llu[ms]\n", timing2.get_sum_time());
 
-    global_heap = new HeapAllocator(false, 1024, 1);
     /*for (int t = 0; t < 600; t++) {
         global_heap->create_new_chunk(1024);
     }*/

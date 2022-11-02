@@ -5,9 +5,10 @@
 #include <unordered_set>
 #include <algorithm>
 #include <vm/modules/util/BitSet.h>
+#include <gc/GC.h>
+#include <heap/HeapAllocator.h>
 
 using namespace catla;
-using namespace heap;
 
 namespace catla {
     atomic_size_t thread_ids;
@@ -15,7 +16,8 @@ namespace catla {
 }
 
 CatVM::CatVM() {
-    this->heap_allocator = new HeapAllocator(false, 1024, 1);
+    this->heap_allocator = new HeapAllocator(this, false, 1024, 1);
+    this->cycle_collector = new CycleCollector(this);
 }
 
 uint64_t CatVM::run_function(VMThread* vm_thread, Module* module, Function* function, uint64_t* arguments) {
@@ -87,7 +89,7 @@ VMThread* CatVM::create_thread(size_t stack_size) {
     this->threads.push_back(thread);
     this->threads_manage_lock.unlock();
 
-    thread->heap_allocator = new HeapAllocator(false, 1024, 1);
+    thread->heap_allocator = new HeapAllocator(this, false, 1024, 1);
     thread->allocator_search_start_index = 0;
 
     thread->suspect_cycle_objects = new stack<HeapObject*>;

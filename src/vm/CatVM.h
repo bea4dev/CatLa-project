@@ -6,14 +6,17 @@
 #include <vm/modules/Function.h>
 #include <heap/HeapAllocator.h>
 #include <stack>
+#include <gc/GC.h>
 
-namespace heap {
-    class HeapLifeManager;
+namespace gc {
+    class CycleCollector;
 }
+using namespace gc;
 
-using namespace heap;
 using namespace std;
 using namespace modules;
+
+class HeapAllocator;
 
 namespace catla {
 
@@ -44,6 +47,7 @@ namespace catla {
         HeapAllocator* heap_allocator;
         vector<HeapChunk*> heap_chunk_list;
         SpinLock heap_chunk_list_lock;
+        CycleCollector* cycle_collector;
 
     public:
         CatVM();

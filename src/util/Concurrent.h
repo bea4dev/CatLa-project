@@ -16,13 +16,13 @@ namespace concurrent {
     public:
         SpinLock() = default;
 
-        void lock() {
+        inline void lock() {
             while (flag.test_and_set(std::memory_order_acquire)) {
                 //wait
             }
         }
 
-        void unlock() {
+        inline void unlock() {
             flag.clear(std::memory_order_release);
         }
     };
