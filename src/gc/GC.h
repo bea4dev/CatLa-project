@@ -25,6 +25,8 @@ namespace gc {
     };
 }
 
+using namespace gc;
+
 inline HeapObject* clone_object_field_ownership(HeapObject* parent_object, size_t field_index) {
     auto* fields = (uint64_t*) (parent_object + 1);
     while (true) {
@@ -63,7 +65,7 @@ inline void increase_reference_count(HeapObject* object) {
     object->count.fetch_add(1, std::memory_order_relaxed);
 }
 
-inline void decrease_reference_count(HeapObject* object) {
+inline void decrease_reference_count(CycleCollector* cycle_collector, HeapObject* object) {
     size_t previous_count = object->count.fetch_sub(1, std::memory_order_release);
     if (previous_count == 2) {
         //Suspect cycles
