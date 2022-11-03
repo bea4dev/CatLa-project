@@ -34,8 +34,8 @@ inline void set_object_field(HeapObject* object, size_t field_index, uint64_t va
     ptr[field_index + 5] = value;
 }
 
-inline void mark_object_alive_non_lock(HeapObject* object) {
-    object->flag |= 1;
+inline void set_object_flag_non_atomic(HeapObject* object, size_t flag) {
+    *((size_t*) &object->flag) = flag;
 }
 
 

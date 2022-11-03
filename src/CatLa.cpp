@@ -3,7 +3,7 @@
 #include <random>
 #include <vm/PrimitiveType.h>
 #include <thread>
-#include <vm/stack/stack.h>
+#include "vm/stack/StackUtil.h"
 #include <pthread.h>
 #include <chrono>
 #include <util/Benchmark.h>

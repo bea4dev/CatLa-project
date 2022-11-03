@@ -94,6 +94,9 @@ void* HeapChunk::malloc(void* type_info, size_t index, size_t block_size, bool i
             } else {
                 return nullptr;
             }
+            if (index == 13) {
+                return nullptr;
+            }
             continue;
         }
 
@@ -114,16 +117,29 @@ void* HeapChunk::malloc(void* type_info, size_t index, size_t block_size, bool i
                 continue;
             }
 
-            if (object->flag.load(std::memory_order_acquire) != 0) {
-                current_entry += block_size;
-                current_entry_index++;
-                if (current_entry_index == cells_size_) {
-                    current_entry = block_entry;
-                    current_entry_index = 0;
+            if (is_thread_safe) {
+                size_t expected = 0;
+                if (!object->flag.compare_exchange_strong(expected, 1, std::memory_order_acquire)) {
+                    current_entry += block_size;
+                    current_entry_index++;
+                    if (current_entry_index == cells_size_) {
+                        current_entry = block_entry;
+                        current_entry_index = 0;
+                    }
+                    continue;
                 }
-                continue;
+            } else {
+                if (object->flag.load(std::memory_order_acquire) != 0) {
+                    current_entry += block_size;
+                    current_entry_index++;
+                    if (current_entry_index == cells_size_) {
+                        current_entry = block_entry;
+                        current_entry_index = 0;
+                    }
+                    continue;
+                }
+                set_object_flag_non_atomic(object, 1);
             }
-            mark_object_alive_non_lock(object);
 
             current_entry_index++;
             if (current_entry_index == cells_size_) {
@@ -147,6 +163,9 @@ void* HeapChunk::malloc(void* type_info, size_t index, size_t block_size, bool i
         } else if (block_size <= BLOCK_SIZE12) {
             block_size = block_size + 128;
         } else {
+            return nullptr;
+        }
+        if (index == 13) {
             return nullptr;
         }
     }

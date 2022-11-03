@@ -23,7 +23,7 @@ add_executable(catla
         src/vm/modules/CatLaFunction.cpp
         src/vm/CatVM.cpp
         src/util/Concurrent.h
-        src/vm/stack/stack.cpp
+        src/vm/stack/StackUtil.cpp
         src/util/Benchmark.cpp
         src/heap/HeapAllocator.cpp
         src/vm/parser/VMParser.cpp
@@ -53,5 +53,6 @@ target_include_directories(catla PRIVATE ${PYTHON_INCLUDE_DIRS})
 target_link_libraries(catla ${llvm_libs} ${Boost_LIBRARIES} ${PYTHON_LIBRARIES})
 
 if(WIN32)
+    #target_compile_options(catla PRIVATE /Ox /GL)
     target_link_libraries(catla pthread_static_lib)
 endif()

@@ -273,7 +273,7 @@ void CatVM::add_heap_allocator_chunk(HeapChunk* chunk) {
 
 vector<HeapChunk*> CatVM::clone_heap_chunk_list() {
     this->heap_chunk_list_lock.lock();
-    vector<HeapChunk*> new_chunk_list;
+    vector<HeapChunk*> new_chunk_list(this->heap_chunk_list.size());
     for (auto& chunk : this->heap_chunk_list) {
         new_chunk_list.push_back(chunk);
     }

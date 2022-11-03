@@ -5,6 +5,9 @@
 #include <vm/modules/Type.h>
 #include <vm/parser/Structs.h>
 #include <vm/PrimitiveType.h>
+#include <string>
+#include <cstring>
+#include <vector>
 
 using namespace std;
 using namespace parser;
