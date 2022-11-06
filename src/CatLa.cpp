@@ -149,11 +149,15 @@ HeapObject* heap_object;
 size_t a = 0;
 int b = 0;
 
+RWLock rw_lock;
+
 void* func1(void* args) {
     for (int s = 0; s < 10000; s++) {
-        object_lock(heap_object);
+        //object_lock(heap_object);
+        rw_lock.write_lock();
         b++;
-        object_unlock(heap_object);
+        rw_lock.write_unlock();
+        //object_unlock(heap_object);
     }
     printf("OK!\n");
     return nullptr;
@@ -161,9 +165,11 @@ void* func1(void* args) {
 
 void* func2(void* args) {
     for (int s = 0; s < 10000; s++) {
-        object_lock(heap_object);
+        //object_lock(heap_object);
+        rw_lock.read_lock();
         //printf("%d\n", b);
-        object_unlock(heap_object);
+        rw_lock.read_unlock();
+        //object_unlock(heap_object);
     }
     printf("OK!\n");
     return nullptr;
@@ -202,6 +208,7 @@ int main()
     Timing timing1;
     Timing timing2;
 
+    RWLock rwLock;
     timing1.start();
     for (int s = 0; s < 10000000; s++) {
         n++;

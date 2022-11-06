@@ -5,26 +5,21 @@ using namespace gc;
 
 CycleCollector::CycleCollector(void* vm) {
     this->vm = vm;
-    this->suspected_object_list = new vector<void*>;
+    this->suspected_object_list = new vector<HeapObject*>;
 }
 
 static size_t block_size_list[13]{32, 40, 48, 56, 64, 72, 80, 88, 96, 128, 256, 384, 512};
-
-typedef struct {
-    HeapObject* object;
-    size_t count;
-} ObjectWithCount;
 
 void CycleCollector::collect_cycles() {
     //Move list ptr
     list_lock.lock();
     auto* suspected_object_list_old = this->suspected_object_list;
-    this->suspected_object_list = new vector<void*>;
+    this->suspected_object_list = new vector<HeapObject *>;
     list_lock.unlock();
 
     //Collect all suspected objets
     for (auto& object_ptr : *suspected_object_list_old) {
-        auto* current_object = (HeapObject*) object_ptr;
+        auto* current_object = object_ptr;
         vector<HeapObject*> collecting_objects;
         stack<HeapObject*> object_temp_stack;
         unordered_map<HeapObject*, size_t> object_reference_count_map;
