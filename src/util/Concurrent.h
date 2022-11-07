@@ -43,7 +43,7 @@ namespace concurrent {
                 if (count_temp == 0) {
                     continue;
                 }
-                if (((atomic_size_t*) &this->count)->compare_exchange_weak(count_temp, count_temp + 1)) {
+                if (((atomic_size_t*) &this->count)->compare_exchange_weak(count_temp, count_temp + 1, std::memory_order_acquire)) {
                     break;
                 }
             }
@@ -60,7 +60,7 @@ namespace concurrent {
                 if (count_temp != 1) {
                     continue;
                 }
-                if (((atomic_size_t*) &this->count)->compare_exchange_weak(count_temp, 0)) {
+                if (((atomic_size_t*) &this->count)->compare_exchange_weak(count_temp, 0, std::memory_order_acquire)) {
                     break;
                 }
             }

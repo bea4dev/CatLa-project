@@ -6,6 +6,7 @@
 #include <vector>
 #include <vm/modules/Type.h>
 #include <vm/modules/util/BitSet.h>
+#include <pthread.h>
 
 using namespace std;
 using namespace concurrent;
@@ -17,6 +18,8 @@ namespace gc {
         void* vm;
         SpinLock list_lock;
         vector<HeapObject*>* suspected_object_list;
+        pthread_mutex_t collector_lock;
+
     public:
         RWLock collect_lock;
 
@@ -98,6 +101,7 @@ inline void decrease_reference_count(CycleCollector* cycle_collector, HeapObject
             if (previous_count == 1) {
                 size_t previous_flag = current_object->flag.exchange(3, std::memory_order_acquire);
                 if (previous_flag == 3) {
+                    //Probably won't happen.
                     if (check_objects.empty()) {
                         break;
                     }
@@ -105,7 +109,8 @@ inline void decrease_reference_count(CycleCollector* cycle_collector, HeapObject
                     check_objects.pop();
                     continue;
                 } else {
-
+                    //printf("previous_flag == %llu\n", previous_count);
+                    cycle_collector->add_suspected_object(current_object);
                 }
             }
 
@@ -133,16 +138,19 @@ inline void decrease_reference_count(CycleCollector* cycle_collector, HeapObject
             }
         }
 
-        if (previous_count == 1) {
-            //Decrease field object's reference count.
-            size_t field_length = current_object->field_length;
-            auto** fields = (HeapObject**) (current_object + 1);
-            for (size_t i = 0; i < field_length; i++) {
-                if (get_flag(current_object_type->reference_fields, i)) {
-                    auto* field_object = fields[i];
-                    check_objects.push(field_object);
-                }
+        //Collect field objects.
+        size_t field_length = current_object->field_length;
+        auto** fields = (HeapObject**) (current_object + 1);
+        for (size_t i = 0; i < field_length; i++) {
+            if (get_flag(current_object_type->reference_fields, i)) {
+                auto* field_object = fields[i];
+                check_objects.push(field_object);
             }
+        }
+
+        if (!is_cycling_type) {
+            //Release object.
+            current_object->flag.store(0, std::memory_order_release);
         }
     }
 
