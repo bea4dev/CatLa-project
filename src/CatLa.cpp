@@ -116,30 +116,57 @@ inline HeapObject* get_object_field_atomic(HeapObject* parent, size_t field_inde
     return field_object;
 }
 
+inline HeapObject* get_move_object_field(HeapObject* parent, size_t field_index) {
+    auto** field_ptr = ((HeapObject**) (parent + 1)) + field_index;
+    HeapObject* field_object;
+    while (true) {
+        object_lock(parent);
+        field_object = *field_ptr;
+        if (field_object != (HeapObject*) 1) {
+            *field_ptr = nullptr;
+            break;
+        }
+        object_unlock(parent);
+    }
+    return field_object;
+}
+
+inline void set_move_object_field_uncheck(HeapObject* parent, size_t field_index, HeapObject* field_object) {
+    auto** field_ptr = ((HeapObject**) (parent + 1)) + field_index;
+    object_lock(parent);
+    *field_ptr = field_object;
+    object_unlock(parent);
+}
+
 
 size_t j = 0;
 size_t c = 0;
 
+Type* object_type1;
+vector<HeapObject*> created_objects;
+
 HeapObject* create(int count) {
     if (count > 20) {
         c++;
-        return (HeapObject*) virtual_machine->get_heap_allocator()->malloc(nullptr, 2, &j);
+        auto* obj = (HeapObject*) virtual_machine->get_heap_allocator()->malloc(object_type1, 2, &j);
+        created_objects.push_back(obj);
+        return obj;
         //return (HeapObject*) calloc(1, 40 + 16);
         //return (HeapObject*) malloc(40 + 16);
     }
     count++;
     c++;
-    auto* parent = (size_t**) virtual_machine->get_heap_allocator()->malloc(nullptr, 2, &j);
+    auto* parent = (HeapObject*) virtual_machine->get_heap_allocator()->malloc(object_type1, 2, &j);
     //auto* parent = (size_t**) calloc(1, 40 + 16);
     //auto* parent = (size_t**) malloc(40 + 16);
     auto* child1 = create(count);
     auto* child2 = create(count);
-    if (parent != nullptr) {
-        parent[5] = (size_t*) child1;
-        parent[6] = (size_t*) child2;
-    } else {
-        printf("NULL! %d\n", c);
-    }
+    created_objects.push_back(child1);
+    created_objects.push_back(child2);
+
+    set_move_object_field_uncheck(parent, 0, child1);
+    set_move_object_field_uncheck(parent, 1, child2);
+
     return (HeapObject*) parent;
 }
 
@@ -189,6 +216,15 @@ int main()
     size_t in = 0;
     heap_object = (HeapObject*) virtual_machine->get_heap_allocator()->malloc(nullptr, 2, &in);
 
+    object_type1 = new Type(nullptr, "TestClass", 0, {}, {});
+    object_type1->is_cycling_type.store(true, std::memory_order_relaxed);
+    auto* bits = create_bitset(2);
+    set_flag(bits, 0, true);
+    set_flag(bits, 1, true);
+    object_type1->reference_fields = bits;
+
+
+    /*
     pthread_t pthread1;
     pthread_t pthread2;
     pthread_t pthread3;
@@ -203,7 +239,7 @@ int main()
     pthread_join(pthread2, nullptr);
     pthread_join(pthread3, nullptr);
     pthread_join(pthread4, nullptr);
-    printf("%d\n", b);
+    printf("%d\n", b);*/
 
     Timing timing1;
     Timing timing2;
@@ -280,14 +316,24 @@ int main()
 
     Timing timing;
     timing.start();
-    create(0);
-
-    /*for (int a = 0; a < 100; a++) {
-        void* object = global_heap->malloc(nullptr, 2, 0, &j);
-        if (object == nullptr) {
-            printf("NULL!!!!\n");
+    auto* parent = create(0);
+    for (auto& obj : created_objects) {
+        if (obj->flag.load(std::memory_order_acquire) != 1) {
+            printf("DEAD!\n");
         }
-    }*/
+    }
+    printf("parent count : %llu\n", parent->count.load(std::memory_order_acquire));
+    parent->count.fetch_add(1, std::memory_order_relaxed);
+    decrease_reference_count(virtual_machine->get_cycle_collector(), parent);
+    printf("decrease count : OK!\n");
+    virtual_machine->get_cycle_collector()->collect_cycles();
+    //virtual_machine->get_cycle_collector()->collect_cycles();
+    printf("collect cycles : OK!\n");
+    for (auto& obj : created_objects) {
+        if (obj->flag.load(std::memory_order_acquire) != 1) {
+            printf("NOT DEAD!\n");
+        }
+    }
     timing.end();
 
     printf("%llu[ms]\n", timing.get_sum_time());

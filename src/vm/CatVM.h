@@ -64,5 +64,8 @@ namespace catla {
         inline HeapAllocator* get_heap_allocator() {
             return heap_allocator;
         }
+        inline CycleCollector* get_cycle_collector() {
+            return cycle_collector;
+        }
     };
 }

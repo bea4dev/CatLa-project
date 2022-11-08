@@ -13,6 +13,7 @@ Type::Type(PrimitiveType* primitive_type, std::string type_name, size_t runtime_
     this->parent_info = std::move(parent_info);
     this->parent = nullptr;
     this->reference_fields = nullptr;
+    this->is_cycling_type.store(false, std::memory_order_release);
 }
 
 Type* modules::get_from_primitive_type(PrimitiveType* type) {

@@ -108,7 +108,7 @@ inline void decrease_reference_count(CycleCollector* cycle_collector, HeapObject
                     current_object = check_objects.top();
                     check_objects.pop();
                     continue;
-                } else {
+                } else if (previous_flag != 2) {
                     //printf("previous_flag == %llu\n", previous_count);
                     cycle_collector->add_suspected_object(current_object);
                 }
@@ -144,7 +144,9 @@ inline void decrease_reference_count(CycleCollector* cycle_collector, HeapObject
         for (size_t i = 0; i < field_length; i++) {
             if (get_flag(current_object_type->reference_fields, i)) {
                 auto* field_object = fields[i];
-                check_objects.push(field_object);
+                if (field_object != nullptr) {
+                    check_objects.push(field_object);
+                }
             }
         }
 
@@ -152,6 +154,12 @@ inline void decrease_reference_count(CycleCollector* cycle_collector, HeapObject
             //Release object.
             current_object->flag.store(0, std::memory_order_release);
         }
+
+        if (check_objects.empty()) {
+            break;
+        }
+        current_object = check_objects.top();
+        check_objects.pop();
     }
 
     if (cycling_lock) {

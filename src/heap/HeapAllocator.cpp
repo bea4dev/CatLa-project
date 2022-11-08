@@ -77,7 +77,7 @@ HeapChunk::~HeapChunk() {
 }
 
 
-void* HeapChunk::malloc(void* type_info, size_t index, size_t block_size, bool is_thread_safe) {
+void* HeapChunk::malloc(void* type_info, size_t index, size_t block_size, size_t field_length, bool is_thread_safe) {
     size_t cells_size_ = this->cells_size;
 
     while (true) {
@@ -138,7 +138,6 @@ void* HeapChunk::malloc(void* type_info, size_t index, size_t block_size, bool i
                     }
                     continue;
                 }
-                set_object_flag_non_atomic(object, 1);
             }
 
             current_entry_index++;
@@ -148,7 +147,9 @@ void* HeapChunk::malloc(void* type_info, size_t index, size_t block_size, bool i
             block_info->current_location = current_entry_index;
 
             object->type_info = type_info;
-            *((size_t*) &object->count) = 1;
+            object->field_length = field_length;
+            object->flag.store(1, std::memory_order_relaxed);
+            object->count.store(1, std::memory_order_release);
 
             return object;
         }
@@ -269,7 +270,7 @@ void* HeapAllocator::malloc(void* type_info, size_t fields_length, size_t* chunk
 
             HeapChunk* chunk = heap_chunks[current_chunk_index];
 
-            void* address = chunk->malloc(type_info, index, block_size, thread_safe);
+            void* address = chunk->malloc(type_info, index, block_size, fields_length, thread_safe);
             if (address != nullptr) {
                 *chunk_search_start_index = current_chunk_index;
                 return address;

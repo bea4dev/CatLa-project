@@ -15,5 +15,5 @@ inline bool get_flag(const uint8_t* bytes, size_t index) {
 
 inline void set_flag(uint8_t* bytes, size_t index, bool value) {
     size_t byte_index = index >> 3;
-    bytes[byte_index] |= (uint8_t) ((uint8_t) value << (index & 0b111));
+    bytes[byte_index] |= (uint8_t) (((uint8_t) value) << (index & 0b111));
 }

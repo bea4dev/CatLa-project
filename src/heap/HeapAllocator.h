@@ -53,7 +53,7 @@ public:
 public:
     explicit HeapChunk(size_t cells_size);
     ~HeapChunk();
-    void* malloc(void* type_info, size_t index, size_t block_size, bool is_thread_safe);
+    void* malloc(void* type_info, size_t index, size_t block_size, size_t field_length, bool is_thread_safe);
 };
 
 class HeapAllocator {
