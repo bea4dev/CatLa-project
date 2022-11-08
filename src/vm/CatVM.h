@@ -33,7 +33,6 @@ namespace catla {
         bool return_function;
         HeapAllocator* heap_allocator;
         size_t allocator_search_start_index;
-        stack<HeapObject*>* suspect_cycle_objects;
     } VMThread;
 
 

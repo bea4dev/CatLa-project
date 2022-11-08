@@ -36,40 +36,6 @@ namespace gc {
 
 using namespace gc;
 
-inline HeapObject* clone_object_field_ownership(HeapObject* parent_object, size_t field_index) {
-    auto* fields = (uint64_t*) (parent_object + 1);
-    while (true) {
-        object_lock(parent_object);
-        auto* field_object = (HeapObject*) fields[field_index];
-
-        if (field_object == (HeapObject*) 1) {
-            object_unlock(parent_object);
-            continue;
-        }
-
-        field_object->count.fetch_add(1, std::memory_order_relaxed);
-        object_unlock(parent_object);
-        return field_object;
-    }
-}
-
-inline HeapObject* move_object_field_ownership(HeapObject* parent_object, size_t field_index) {
-    auto* fields = (uint64_t*) (parent_object + 1);
-    while (true) {
-        object_lock(parent_object);
-        auto* field_object = (HeapObject*) fields[field_index];
-
-        if (field_object == (HeapObject*) 1) {
-            object_unlock(parent_object);
-            continue;
-        }
-
-        fields[field_index] = 0;
-        object_unlock(parent_object);
-        return field_object;
-    }
-}
-
 inline void increase_reference_count(HeapObject* object) {
     object->count.fetch_add(1, std::memory_order_relaxed);
 }

@@ -116,10 +116,57 @@ inline HeapObject* get_object_field_atomic(HeapObject* parent, size_t field_inde
     return field_object;
 }
 
+inline void set_clone_object_field(CycleCollector* cycle_collector, HeapObject* parent, size_t field_index, HeapObject* field_object) {
+    field_object->count.fetch_add(1, std::memory_order_acquire);
+    auto** field_ptr = ((HeapObject**) (parent + 1)) + field_index;
+    HeapObject* old_field_object;
+    while (true) {
+        object_lock(parent);
+        old_field_object = *field_ptr;
+        if (old_field_object != (HeapObject*) 1) {
+            *field_ptr = field_object;
+            break;
+        }
+        object_unlock(parent);
+    }
+    decrease_reference_count(cycle_collector, old_field_object);
+}
+
+inline HeapObject* get_clone_object_field(HeapObject* parent, size_t field_index) {
+    auto** field_ptr = ((HeapObject**) (parent + 1)) + field_index;
+    HeapObject* field_object;
+    while (true) {
+        object_lock(parent);
+        field_object = *field_ptr;
+        if (field_object != (HeapObject*) 1) {
+            increase_reference_count(field_object);
+            break;
+        }
+        object_unlock(parent);
+    }
+    return field_object;
+}
+
+inline void set_move_object_field(CycleCollector* cycle_collector, HeapObject* parent, size_t field_index, HeapObject* field_object) {
+    auto** field_ptr = ((HeapObject**) (parent + 1)) + field_index;
+    HeapObject* old_field_object;
+    while (true) {
+        object_lock(parent);
+        old_field_object = *field_ptr;
+        if (old_field_object != (HeapObject*) 1) {
+            *field_ptr = field_object;
+            break;
+        }
+        object_unlock(parent);
+    }
+    decrease_reference_count(cycle_collector, old_field_object);
+}
+
 inline HeapObject* get_move_object_field(HeapObject* parent, size_t field_index) {
     auto** field_ptr = ((HeapObject**) (parent + 1)) + field_index;
     HeapObject* field_object;
     while (true) {
+        atomic_thread_fence(std::memory_order_release);
         object_lock(parent);
         field_object = *field_ptr;
         if (field_object != (HeapObject*) 1) {
@@ -143,6 +190,8 @@ size_t j = 0;
 size_t c = 0;
 
 Type* object_type1;
+Type* object_type2;
+Type* module_type;
 vector<HeapObject*> created_objects;
 
 HeapObject* create(int count) {
@@ -178,15 +227,19 @@ int b = 0;
 
 RWLock rw_lock;
 
+HeapObject* module_object;
+
+inline long long get_current_ms() {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+}
+
+inline size_t get_10_random() {
+    return get_current_ms() % 10;
+}
+
 void* func1(void* args) {
-    for (int s = 0; s < 10000; s++) {
-        //object_lock(heap_object);
-        rw_lock.write_lock();
-        b++;
-        rw_lock.write_unlock();
-        //object_unlock(heap_object);
-    }
-    printf("OK!\n");
+    auto* obj1 = get_clone_object_field(module_object, get_10_random());
+
     return nullptr;
 }
 
@@ -217,11 +270,23 @@ int main()
     heap_object = (HeapObject*) virtual_machine->get_heap_allocator()->malloc(nullptr, 2, &in);
 
     object_type1 = new Type(nullptr, "TestClass", 0, {}, {});
-    object_type1->is_cycling_type.store(true, std::memory_order_relaxed);
+    object_type2 = new Type(nullptr, "TestClass", 0, {}, {});
+    module_type = new Type(nullptr, "TestModule", 0, {}, {});
+    object_type2->is_cycling_type.store(true, std::memory_order_relaxed);
     auto* bits = create_bitset(2);
     set_flag(bits, 0, true);
     set_flag(bits, 1, true);
     object_type1->reference_fields = bits;
+    object_type2->reference_fields = bits;
+
+    bits = create_bitset(10);
+    for (size_t s = 0; s < 10; s++) {
+        set_flag(bits, s, true);
+    }
+    module_type->reference_fields = bits;
+
+
+    module_object = (HeapObject*) virtual_machine->get_heap_allocator()->malloc(module_type, 10, &j);
 
 
     /*
@@ -316,24 +381,7 @@ int main()
 
     Timing timing;
     timing.start();
-    auto* parent = create(0);
-    for (auto& obj : created_objects) {
-        if (obj->flag.load(std::memory_order_acquire) != 1) {
-            printf("DEAD!\n");
-        }
-    }
-    printf("parent count : %llu\n", parent->count.load(std::memory_order_acquire));
-    parent->count.fetch_add(1, std::memory_order_relaxed);
-    decrease_reference_count(virtual_machine->get_cycle_collector(), parent);
-    printf("decrease count : OK!\n");
-    virtual_machine->get_cycle_collector()->collect_cycles();
-    //virtual_machine->get_cycle_collector()->collect_cycles();
-    printf("collect cycles : OK!\n");
-    for (auto& obj : created_objects) {
-        if (obj->flag.load(std::memory_order_acquire) != 1) {
-            printf("NOT DEAD!\n");
-        }
-    }
+
     timing.end();
 
     printf("%llu[ms]\n", timing.get_sum_time());

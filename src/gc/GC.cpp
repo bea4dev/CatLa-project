@@ -49,6 +49,7 @@ void CycleCollector::collect_cycles() {
 
         stack<HeapObject*> check_objects;
         unordered_map<HeapObject*, size_t> object_reference_count_map;
+        object_reference_count_map[object_ptr] = object_ptr->count.load(std::memory_order_acquire);
 
         //Collect and mark gray.
         while (true) {
@@ -95,6 +96,7 @@ void CycleCollector::collect_cycles() {
             size_t object_flag = current_object->flag.load(std::memory_order_acquire);
 
             size_t current_object_reference_count = object_reference_count_map[current_object];
+            //Mark black.
             if (current_object_reference_count > 0) {
                 object_flag = 6;
                 current_object->flag.store(6, std::memory_order_release);
@@ -106,7 +108,7 @@ void CycleCollector::collect_cycles() {
             for (size_t i = 0; i < field_length; i++) {
                 if (get_flag(current_object_type->reference_fields, i)) {
                     auto* field_object = fields[i];
-                    if (field_object == nullptr) {
+                    if (field_object != nullptr) {
                         size_t field_object_flag = field_object->flag.load(std::memory_order_acquire);
 
                         if (object_flag == 6) {

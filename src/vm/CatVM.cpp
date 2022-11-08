@@ -16,7 +16,7 @@ namespace catla {
 }
 
 CatVM::CatVM() {
-    this->heap_allocator = new HeapAllocator(this, false, 1024, 1);
+    this->heap_allocator = new HeapAllocator(this, true, 1024, 1);
     this->cycle_collector = new CycleCollector(this);
 }
 
@@ -91,8 +91,6 @@ VMThread* CatVM::create_thread(size_t stack_size) {
 
     thread->heap_allocator = new HeapAllocator(this, false, 1024, 1);
     thread->allocator_search_start_index = 0;
-
-    thread->suspect_cycle_objects = new stack<HeapObject*>;
 
     return thread;
 }
