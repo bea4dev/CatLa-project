@@ -53,7 +53,7 @@ void CycleCollector::collect_cycles() {
 
         //Collect and mark gray.
         while (true) {
-            size_t object_flag = current_object->flag.load(std::memory_order_acquire);
+            //size_t object_flag = current_object->flag.load(std::memory_order_acquire);
 
             auto* current_object_type = (Type*) current_object->type_info;
             auto** fields = (HeapObject**) (current_object + 1);
@@ -138,20 +138,42 @@ void CycleCollector::collect_cycles() {
         for (auto& object : collecting_objects) {
             size_t object_flag = object->flag.load(std::memory_order_acquire);
             if (object_flag == 5) {
-                //If object is white or scheduled to release.
-                //Release.
-                object->flag.store(0, std::memory_order_release);
+                //If object is white
+                //Release
+                object->flag.store(3, std::memory_order_release);
+                atomic_thread_fence(std::memory_order_acquire);
+                release_objects.push_back(object);
             } else {
+                //printf("FLAG : %llu : %llu\n", object_flag, object->count.load(std::memory_order_acquire));
                 object->flag.store(1, std::memory_order_release);
             }
             object_unlock(object);
         }
 
-        for (auto& object : release_objects) {
-            object->flag.store(0, std::memory_order_release);
+        this->collect_lock.write_unlock();
+    }
+
+    for (auto& object : release_objects) {
+        auto* object_type = (Type*) object->type_info;
+        size_t field_length = object->field_length;
+        auto** fields = (HeapObject**) (object + 1);
+        auto* reference_fields = object_type->reference_fields;
+        for (size_t i = 0; i < field_length; i++) {
+            if (get_flag(reference_fields, i)) {
+                auto* field_object = fields[i];
+                if (field_object != nullptr) {
+                    auto* field_object_type = (Type *) field_object->type_info;
+                    if (!field_object_type->is_cycling_type.load(std::memory_order_acquire)) {
+                        field_object->count.fetch_sub(1, std::memory_order_release);
+                        atomic_thread_fence(std::memory_order_acquire);
+                        field_object->flag.store(0, std::memory_order_release);
+                    }
+                }
+            }
         }
 
-        this->collect_lock.write_unlock();
+        //Release
+        object->flag.store(0, std::memory_order_release);
     }
 
     delete suspected_object_list_old;

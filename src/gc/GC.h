@@ -64,6 +64,7 @@ inline void decrease_reference_count(CycleCollector* cycle_collector, HeapObject
         atomic_thread_fence(std::memory_order_acquire);
 
         if (is_cycling_type) {
+            //printf("CYCLE! : %llu\n", previous_count);
             if (previous_count == 1) {
                 size_t previous_flag = current_object->flag.exchange(3, std::memory_order_acquire);
                 if (previous_flag == 3) {
@@ -75,7 +76,6 @@ inline void decrease_reference_count(CycleCollector* cycle_collector, HeapObject
                     check_objects.pop();
                     continue;
                 } else if (previous_flag != 2) {
-                    //printf("previous_flag == %llu\n", previous_count);
                     cycle_collector->add_suspected_object(current_object);
                 }
             }

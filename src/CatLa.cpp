@@ -16,6 +16,7 @@
 #include <util/StringUtil.h>
 #include <vm/parser/VMParser.h>
 #include <vm/PrimitiveType.h>
+#include <ctime>
 
 CatVM* virtual_machine = nullptr;
 
@@ -117,7 +118,7 @@ inline HeapObject* get_object_field_atomic(HeapObject* parent, size_t field_inde
 }
 
 inline void set_clone_object_field(CycleCollector* cycle_collector, HeapObject* parent, size_t field_index, HeapObject* field_object) {
-    field_object->count.fetch_add(1, std::memory_order_acquire);
+    increase_reference_count(field_object);
     auto** field_ptr = ((HeapObject**) (parent + 1)) + field_index;
     HeapObject* old_field_object;
     while (true) {
@@ -125,26 +126,30 @@ inline void set_clone_object_field(CycleCollector* cycle_collector, HeapObject* 
         old_field_object = *field_ptr;
         if (old_field_object != (HeapObject*) 1) {
             *field_ptr = field_object;
+            object_unlock(parent);
             break;
         }
         object_unlock(parent);
     }
-    decrease_reference_count(cycle_collector, old_field_object);
+    if (old_field_object != nullptr) {
+        decrease_reference_count(cycle_collector, old_field_object);
+    }
 }
 
 inline HeapObject* get_clone_object_field(HeapObject* parent, size_t field_index) {
     auto** field_ptr = ((HeapObject**) (parent + 1)) + field_index;
-    HeapObject* field_object;
     while (true) {
         object_lock(parent);
-        field_object = *field_ptr;
+        auto* field_object = *field_ptr;
         if (field_object != (HeapObject*) 1) {
-            increase_reference_count(field_object);
-            break;
+            if (field_object != nullptr) {
+                increase_reference_count(field_object);
+            }
+            object_unlock(parent);
+            return field_object;
         }
         object_unlock(parent);
     }
-    return field_object;
 }
 
 inline void set_move_object_field(CycleCollector* cycle_collector, HeapObject* parent, size_t field_index, HeapObject* field_object) {
@@ -155,11 +160,14 @@ inline void set_move_object_field(CycleCollector* cycle_collector, HeapObject* p
         old_field_object = *field_ptr;
         if (old_field_object != (HeapObject*) 1) {
             *field_ptr = field_object;
+            object_unlock(parent);
             break;
         }
         object_unlock(parent);
     }
-    decrease_reference_count(cycle_collector, old_field_object);
+    if (old_field_object != nullptr) {
+        decrease_reference_count(cycle_collector, old_field_object);
+    }
 }
 
 inline HeapObject* get_move_object_field(HeapObject* parent, size_t field_index) {
@@ -171,6 +179,7 @@ inline HeapObject* get_move_object_field(HeapObject* parent, size_t field_index)
         field_object = *field_ptr;
         if (field_object != (HeapObject*) 1) {
             *field_ptr = nullptr;
+            object_unlock(parent);
             break;
         }
         object_unlock(parent);
@@ -230,28 +239,51 @@ RWLock rw_lock;
 HeapObject* module_object;
 
 inline long long get_current_ms() {
-    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+    return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 }
 
-inline size_t get_10_random() {
-    return get_current_ms() % 10;
+inline size_t get_10() {
+    return clock() % 10;
 }
 
 void* func1(void* args) {
-    auto* obj1 = get_clone_object_field(module_object, get_10_random());
+    auto* thread = virtual_machine->create_thread(2048);
+    for (size_t s = 0; s < 1000000; s++) {
+        if (get_10() % 2 == 0) {
+            auto* obj1 = (HeapObject*) thread->heap_allocator->malloc(object_type2, 2, &thread->allocator_search_start_index);
+            auto* obj2 = (HeapObject*) thread->heap_allocator->malloc(object_type2, 2, &thread->allocator_search_start_index);
+            auto* obj3 = (HeapObject*) thread->heap_allocator->malloc(object_type2, 2, &thread->allocator_search_start_index);
 
+            object_lock(module_object);
+            created_objects.push_back(obj1);
+            created_objects.push_back(obj2);
+            created_objects.push_back(obj3);
+            object_unlock(module_object);
+
+            set_move_object_field(virtual_machine->get_cycle_collector(), module_object, get_10(), obj1);
+            set_move_object_field(virtual_machine->get_cycle_collector(), module_object, get_10(), obj2);
+            set_move_object_field(virtual_machine->get_cycle_collector(), module_object, get_10(), obj3);
+        } else {
+            auto* obj1 = get_clone_object_field(module_object, get_10());
+            auto* obj2 = get_clone_object_field(module_object, get_10());
+            auto* obj3 = get_clone_object_field(module_object, get_10());
+            if (get_10() % 2 == 0) {
+                set_move_object_field(virtual_machine->get_cycle_collector(), obj1, get_10() % 2, obj2);
+                set_move_object_field(virtual_machine->get_cycle_collector(), obj2, get_10() % 2, obj3);
+                decrease_reference_count(virtual_machine->get_cycle_collector(), obj1);
+            } else {
+                set_move_object_field(virtual_machine->get_cycle_collector(), obj1, get_10() % 2, obj2);
+                set_move_object_field(virtual_machine->get_cycle_collector(), obj2, get_10() % 2, obj3);
+                set_move_object_field(virtual_machine->get_cycle_collector(), obj3, get_10() % 2, obj1);
+            }
+        }
+    }
     return nullptr;
 }
 
 void* func2(void* args) {
-    for (int s = 0; s < 10000; s++) {
-        //object_lock(heap_object);
-        rw_lock.read_lock();
-        //printf("%d\n", b);
-        rw_lock.read_unlock();
-        //object_unlock(heap_object);
-    }
-    printf("OK!\n");
+    this_thread::sleep_for(std::chrono::milliseconds(150));
+    virtual_machine->get_cycle_collector()->collect_cycles();
     return nullptr;
 }
 
@@ -287,24 +319,87 @@ int main()
 
 
     module_object = (HeapObject*) virtual_machine->get_heap_allocator()->malloc(module_type, 10, &j);
+    set_move_object_field_uncheck(module_object, 0, (HeapObject*) virtual_machine->get_heap_allocator()->malloc(object_type1, 2, &j));
+    set_move_object_field_uncheck(module_object, 1, (HeapObject*) virtual_machine->get_heap_allocator()->malloc(object_type1, 2, &j));
+    set_move_object_field_uncheck(module_object, 2, (HeapObject*) virtual_machine->get_heap_allocator()->malloc(object_type1, 2, &j));
+    set_move_object_field_uncheck(module_object, 3, (HeapObject*) virtual_machine->get_heap_allocator()->malloc(object_type1, 2, &j));
+    set_move_object_field_uncheck(module_object, 4, (HeapObject*) virtual_machine->get_heap_allocator()->malloc(object_type1, 2, &j));
+    set_move_object_field_uncheck(module_object, 5, (HeapObject*) virtual_machine->get_heap_allocator()->malloc(object_type1, 2, &j));
+    set_move_object_field_uncheck(module_object, 6, (HeapObject*) virtual_machine->get_heap_allocator()->malloc(object_type1, 2, &j));
+    set_move_object_field_uncheck(module_object, 7, (HeapObject*) virtual_machine->get_heap_allocator()->malloc(object_type1, 2, &j));
+    set_move_object_field_uncheck(module_object, 8, (HeapObject*) virtual_machine->get_heap_allocator()->malloc(object_type1, 2, &j));
+    set_move_object_field_uncheck(module_object, 9, (HeapObject*) virtual_machine->get_heap_allocator()->malloc(object_type1, 2, &j));
 
-
-    /*
+    Timing gc_timing;
+    gc_timing.start();
     pthread_t pthread1;
     pthread_t pthread2;
     pthread_t pthread3;
     pthread_t pthread4;
     pthread_attr_t thread_attribute;
     pthread_attr_init(&thread_attribute);
+
     pthread_create(&pthread1, &thread_attribute, func1, nullptr);
-    pthread_create(&pthread2, &thread_attribute, func2, nullptr);
+    pthread_create(&pthread2, &thread_attribute, func1, nullptr);
     pthread_create(&pthread3, &thread_attribute, func1, nullptr);
-    pthread_create(&pthread4, &thread_attribute, func2, nullptr);
+    //pthread_create(&pthread4, &thread_attribute, func2, nullptr);
     pthread_join(pthread1, nullptr);
     pthread_join(pthread2, nullptr);
     pthread_join(pthread3, nullptr);
-    pthread_join(pthread4, nullptr);
-    printf("%d\n", b);*/
+    //pthread_join(pthread4, nullptr);
+    //func1(nullptr);
+    decrease_reference_count(virtual_machine->get_cycle_collector(), module_object);
+    virtual_machine->get_cycle_collector()->collect_cycles();
+    //printf("START! %llu %llu\n", get_10_random(), get_10());
+    for (auto& object : created_objects) {
+        size_t object_flag = object->flag.load(std::memory_order_acquire);
+        if (object_flag != 0) {
+            printf("NOT DEAD! : %llu : %llu [%p] ", object->count.load(std::memory_order_acquire), object_flag, object);
+
+            auto** fields = (HeapObject**) (object + 1);
+            auto* object_type = (Type*) object->type_info;
+            size_t field_length = object->field_length;
+            for (size_t s = 0; s < field_length; s++) {
+                printf("%p ", fields[s]);
+            }
+            printf("\n");
+        } else {
+            //printf("DEAD!\n");
+        }
+    }
+
+    /*
+    auto* t1 = (HeapObject*) virtual_machine->get_heap_allocator()->malloc(object_type2, 2, &j);
+    auto* t2 = (HeapObject*) virtual_machine->get_heap_allocator()->malloc(object_type2, 2, &j);
+    auto* parent = (HeapObject*) virtual_machine->get_heap_allocator()->malloc(object_type1, 2, &j);
+    created_objects.push_back(t1);
+    created_objects.push_back(t2);
+    created_objects.push_back(parent);
+    set_move_object_field(virtual_machine->get_cycle_collector(), parent, 0, t1);
+    set_move_object_field(virtual_machine->get_cycle_collector(), parent, 1, t2);
+    set_clone_object_field(virtual_machine->get_cycle_collector(), t1, 0, t2);
+    set_clone_object_field(virtual_machine->get_cycle_collector(), t2, 0, t1);
+    set_clone_object_field(virtual_machine->get_cycle_collector(), t1, 1, t1);
+    set_clone_object_field(virtual_machine->get_cycle_collector(), t2, 1, t2);
+    decrease_reference_count(virtual_machine->get_cycle_collector(), parent);
+    for (auto& object : created_objects) {
+        if (object->flag.load(std::memory_order_acquire) != 0) {
+            printf("NOT DEAD! : %llu\n", object->count.load(std::memory_order_acquire));
+        } else {
+            printf("DEAD!\n");
+        }
+    }
+    virtual_machine->get_cycle_collector()->collect_cycles();
+    printf("COLLECT OK!\n");
+    for (auto& object : created_objects) {
+        if (object->flag.load(std::memory_order_acquire) != 0) {
+            printf("NOT DEAD! : %llu\n", object->count.load(std::memory_order_acquire));
+        } else {
+            printf("DEAD!\n");
+        }
+    }*/
+    gc_timing.end();
+    printf("GC : %llu[ms]\n", gc_timing.get_sum_time());
 
     Timing timing1;
     Timing timing2;
