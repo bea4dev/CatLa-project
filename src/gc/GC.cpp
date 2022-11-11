@@ -134,12 +134,14 @@ void CycleCollector::collect_cycles() {
             check_objects.pop();
         }
 
+        printf("COLLECT!\n");
         //Release white.
         for (auto& object : collecting_objects) {
             size_t object_flag = object->flag.load(std::memory_order_acquire);
             if (object_flag == 5) {
                 //If object is white
                 //Release
+                printf("COLLECT WHITE! [%p] : %p %p\n", object, *((HeapObject**) (object + 1)), *((HeapObject**) (object + 1) + 1));
                 object->flag.store(3, std::memory_order_release);
                 atomic_thread_fence(std::memory_order_acquire);
                 release_objects.push_back(object);

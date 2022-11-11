@@ -13,14 +13,14 @@ typedef struct {
 } HeapObject;
 
 inline void object_lock(HeapObject* object) {
-    auto* flag = (atomic_flag*) (((size_t*) object) + 2);
+    auto* flag = (atomic_flag*) &object->lock_flag;
     while (flag->test_and_set(std::memory_order_acquire)) {
         //wait
     }
 }
 
 inline void object_unlock(HeapObject* object) {
-    auto* flag = (atomic_flag*) (((size_t*) object) + 2);
+    auto* flag = (atomic_flag*) &object->lock_flag;
     flag->clear(std::memory_order_release);
 }
 
