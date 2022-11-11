@@ -246,24 +246,41 @@ inline size_t get_10() {
     return clock() % 10;
 }
 
+inline HeapObject* create_object() {
+    auto* object = (HeapObject*) virtual_machine->get_heap_allocator()->malloc(object_type2, 2, &j);
+    created_objects.push_back(object);
+    return object;
+}
+
 void* func1(void* args) {
+    printf("START!\n");
     auto* thread = virtual_machine->create_thread(2048);
-    for (size_t s = 0; s < 1000000; s++) {
+    for (size_t s = 0; s < 10000; s++) {
         if (get_10() % 2 == 0) {
+            printf("1!\n");
             auto* obj1 = (HeapObject*) thread->heap_allocator->malloc(object_type2, 2, &thread->allocator_search_start_index);
             auto* obj2 = (HeapObject*) thread->heap_allocator->malloc(object_type2, 2, &thread->allocator_search_start_index);
             auto* obj3 = (HeapObject*) thread->heap_allocator->malloc(object_type2, 2, &thread->allocator_search_start_index);
-
+            printf("2!\n");
             object_lock(module_object);
             created_objects.push_back(obj1);
             created_objects.push_back(obj2);
             created_objects.push_back(obj3);
             object_unlock(module_object);
-
-            set_move_object_field(virtual_machine->get_cycle_collector(), module_object, get_10(), obj1);
-            set_move_object_field(virtual_machine->get_cycle_collector(), module_object, get_10(), obj2);
-            set_move_object_field(virtual_machine->get_cycle_collector(), module_object, get_10(), obj3);
-        } else {
+            printf("3!\n");
+            auto* field_obj1 = get_clone_object_field(module_object, get_10());
+            auto* field_obj2 = get_clone_object_field(module_object, get_10());
+            auto* field_obj3 = get_clone_object_field(module_object, get_10());
+            printf("4!\n");
+            set_move_object_field(virtual_machine->get_cycle_collector(), field_obj1, get_10(), obj1);
+            set_move_object_field(virtual_machine->get_cycle_collector(), field_obj2, get_10(), obj2);
+            set_move_object_field(virtual_machine->get_cycle_collector(), field_obj3, get_10(), obj3);
+            printf("1\n");
+            decrease_reference_count(virtual_machine->get_cycle_collector(), field_obj1);
+            decrease_reference_count(virtual_machine->get_cycle_collector(), field_obj2);
+            decrease_reference_count(virtual_machine->get_cycle_collector(), field_obj3);
+            printf("2\n");
+        }/* else {
             auto* obj1 = get_clone_object_field(module_object, get_10());
             auto* obj2 = get_clone_object_field(module_object, get_10());
             auto* obj3 = get_clone_object_field(module_object, get_10());
@@ -276,7 +293,7 @@ void* func1(void* args) {
                 set_move_object_field(virtual_machine->get_cycle_collector(), obj2, get_10() % 2, obj3);
                 set_move_object_field(virtual_machine->get_cycle_collector(), obj3, get_10() % 2, obj1);
             }
-        }
+        }*/
     }
     return nullptr;
 }
@@ -319,16 +336,16 @@ int main()
 
 
     module_object = (HeapObject*) virtual_machine->get_heap_allocator()->malloc(module_type, 10, &j);
-    set_move_object_field_uncheck(module_object, 0, (HeapObject*) virtual_machine->get_heap_allocator()->malloc(object_type1, 2, &j));
-    set_move_object_field_uncheck(module_object, 1, (HeapObject*) virtual_machine->get_heap_allocator()->malloc(object_type1, 2, &j));
-    set_move_object_field_uncheck(module_object, 2, (HeapObject*) virtual_machine->get_heap_allocator()->malloc(object_type1, 2, &j));
-    set_move_object_field_uncheck(module_object, 3, (HeapObject*) virtual_machine->get_heap_allocator()->malloc(object_type1, 2, &j));
-    set_move_object_field_uncheck(module_object, 4, (HeapObject*) virtual_machine->get_heap_allocator()->malloc(object_type1, 2, &j));
-    set_move_object_field_uncheck(module_object, 5, (HeapObject*) virtual_machine->get_heap_allocator()->malloc(object_type1, 2, &j));
-    set_move_object_field_uncheck(module_object, 6, (HeapObject*) virtual_machine->get_heap_allocator()->malloc(object_type1, 2, &j));
-    set_move_object_field_uncheck(module_object, 7, (HeapObject*) virtual_machine->get_heap_allocator()->malloc(object_type1, 2, &j));
-    set_move_object_field_uncheck(module_object, 8, (HeapObject*) virtual_machine->get_heap_allocator()->malloc(object_type1, 2, &j));
-    set_move_object_field_uncheck(module_object, 9, (HeapObject*) virtual_machine->get_heap_allocator()->malloc(object_type1, 2, &j));
+    set_move_object_field_uncheck(module_object, 0, create_object());
+    set_move_object_field_uncheck(module_object, 1, create_object());
+    set_move_object_field_uncheck(module_object, 2, create_object());
+    set_move_object_field_uncheck(module_object, 3, create_object());
+    set_move_object_field_uncheck(module_object, 4, create_object());
+    set_move_object_field_uncheck(module_object, 5, create_object());
+    set_move_object_field_uncheck(module_object, 6, create_object());
+    set_move_object_field_uncheck(module_object, 7, create_object());
+    set_move_object_field_uncheck(module_object, 8, create_object());
+    set_move_object_field_uncheck(module_object, 9, create_object());
 
     Timing gc_timing;
     gc_timing.start();

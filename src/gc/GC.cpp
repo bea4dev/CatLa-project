@@ -144,7 +144,7 @@ void CycleCollector::collect_cycles() {
                 atomic_thread_fence(std::memory_order_acquire);
                 release_objects.push_back(object);
             } else {
-                //printf("FLAG : %llu : %llu\n", object_flag, object->count.load(std::memory_order_acquire));
+                //printf("FLAG [%p] : %llu : %llu\n", object, object_flag, object->count.load(std::memory_order_acquire));
                 object->flag.store(1, std::memory_order_release);
             }
             object_unlock(object);
