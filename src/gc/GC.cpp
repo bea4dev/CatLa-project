@@ -1,5 +1,6 @@
 #include <gc/GC.h>
 #include <unordered_map>
+#include <unordered_set>
 
 using namespace gc;
 
@@ -142,8 +143,8 @@ void CycleCollector::collect_cycles() {
                 //If object is white
                 //Release
                 printf("COLLECT WHITE! [%p] : %p %p\n", object, *((HeapObject**) (object + 1)), *((HeapObject**) (object + 1) + 1));
-                object->flag.store(3, std::memory_order_release);
-                atomic_thread_fence(std::memory_order_acquire);
+                //object->flag.store(3, std::memory_order_release);
+                //atomic_thread_fence(std::memory_order_acquire);
                 release_objects.push_back(object);
             } else {
                 //printf("FLAG [%p] : %llu : %llu\n", object, object_flag, object->count.load(std::memory_order_acquire));
@@ -155,26 +156,42 @@ void CycleCollector::collect_cycles() {
         this->collect_lock.write_unlock();
     }
 
+    unordered_set<HeapObject*> released;
+
     for (auto& object : release_objects) {
+        if (released.find(object) != released.end()) {
+            continue;
+        }
+
         auto* object_type = (Type*) object->type_info;
         size_t field_length = object->field_length;
         auto** fields = (HeapObject**) (object + 1);
         auto* reference_fields = object_type->reference_fields;
+        size_t object_flag = object->flag.load(std::memory_order_acquire);
+
         for (size_t i = 0; i < field_length; i++) {
             if (get_flag(reference_fields, i)) {
                 auto* field_object = fields[i];
                 if (field_object != nullptr) {
-                    auto* field_object_type = (Type *) field_object->type_info;
-                    if (!field_object_type->is_cycling_type.load(std::memory_order_acquire)) {
-                        field_object->count.fetch_sub(1, std::memory_order_release);
-                        atomic_thread_fence(std::memory_order_acquire);
-                        field_object->flag.store(0, std::memory_order_release);
+                    auto* field_object_type = (Type*) field_object->type_info;
+                    bool is_cycle_type = field_object_type->is_cycling_type.load(std::memory_order_acquire);
+                    size_t field_object_flag = field_object->flag.load(std::memory_order_acquire);
+                    if (is_cycle_type) {
+                        if (object_flag == 5) {
+                            if (field_object_flag == 1 || field_object_flag == 2) {
+                                decrease_reference_count(this, field_object);
+                            }
+                        }
+                    } else {
+                        decrease_reference_count(this, field_object);
                     }
                 }
             }
         }
 
         //Release
+        released.insert(object);
+        //object->count.store(0, std::memory_order_release);
         object->flag.store(0, std::memory_order_release);
     }
 

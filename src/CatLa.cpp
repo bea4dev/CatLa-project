@@ -391,6 +391,9 @@ int main()
     virtual_machine->get_cycle_collector()->collect_cycles();
     printf("COLLECT END!\n");
     //printf("START! %llu %llu\n", get_10_random(), get_10());
+
+    vector<HeapObject*> leaked_objects;
+
     for (auto& object : created_objects) {
         size_t object_flag = object->flag.load(std::memory_order_acquire);
         if (object_flag != 0) {
@@ -404,10 +407,37 @@ int main()
                 printf("%p ", fields[s]);
             }
             printf("\n");
+            leaked_objects.push_back(object);
         } else {
             //printf("DEAD!\n");
         }
     }
+
+    printf("--- TRACE INFO ---\n");
+    for (auto& object : created_objects) {
+        auto** fields = (HeapObject**) (object + 1);
+        auto* object_type = (Type*) object->type_info;
+        size_t field_length = object->field_length;
+        for (size_t s = 0; s < field_length; s++) {
+            auto* field = fields[s];
+            for (auto& leaked_object : leaked_objects) {
+                if (field == leaked_object) {
+                    goto break_field_loop;
+                }
+            }
+        }
+        continue;
+
+        break_field_loop:
+
+        size_t object_flag = object->flag.load(std::memory_order_acquire);
+        printf("%llu(%llu) : %llu [%p] ", object->count.load(std::memory_order_acquire), count_cache_map[object], object_flag, object);
+        for (size_t s = 0; s < field_length; s++) {
+            printf("%p ", fields[s]);
+        }
+        printf("\n");
+    }
+    printf("------------------\n");
 
     /*
     auto* t1 = (HeapObject*) virtual_machine->get_heap_allocator()->malloc(object_type2, 2, &j);
