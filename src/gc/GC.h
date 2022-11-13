@@ -46,9 +46,6 @@ inline void decrease_reference_count(CycleCollector* cycle_collector, HeapObject
     stack<HeapObject*> check_objects;
 
     while (true) {
-        if (current_object == nullptr) {
-            printf("NULL!\n");
-        }
         auto* current_object_type = (Type*) current_object->type_info;
 
         //Possibly, leaking objects will occur on dynamic load.(?)
@@ -72,14 +69,18 @@ inline void decrease_reference_count(CycleCollector* cycle_collector, HeapObject
                 size_t previous_flag = current_object->flag.exchange(3, std::memory_order_acquire);
                 if (previous_flag == 3) {
                     //Probably won't happen.
-                } else if (previous_flag != 2) {
+                    printf("??\n");
+                } else {
                     cycle_collector->add_suspected_object(current_object);
                 }
-            } else {
+            }
+
+            if (previous_count != 1) {
                 size_t expected = 1;
                 if (current_object->flag.compare_exchange_strong(expected, 2)) {
                     cycle_collector->add_suspected_object(current_object);
                 }
+
                 if (check_objects.empty()) {
                     break;
                 }

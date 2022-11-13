@@ -242,6 +242,14 @@ inline long long get_current_ms() {
     return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 }
 
+size_t rand_map[10] = {};
+
+void create_random_map() {
+    for (auto& s : rand_map) {
+        s = random();
+    }
+}
+
 inline size_t get_10() {
     return clock() % 10;
 }
@@ -252,51 +260,58 @@ inline HeapObject* create_object() {
     return object;
 }
 
+atomic_bool task_flag(false);
+
 void* func1(void* args) {
     printf("START!\n");
     auto* thread = virtual_machine->create_thread(2048);
-    for (size_t s = 0; s < 1000000; s++) {
+    for (size_t s = 0; s < 10000000; s++) {
         if (get_10() % 2 == 0) {
-            auto* obj1 = (HeapObject*) thread->heap_allocator->malloc(object_type2, 2, &thread->allocator_search_start_index);
-            auto* obj2 = (HeapObject*) thread->heap_allocator->malloc(object_type2, 2, &thread->allocator_search_start_index);
-            auto* obj3 = (HeapObject*) thread->heap_allocator->malloc(object_type2, 2, &thread->allocator_search_start_index);
+            auto* obj1 = (HeapObject*) thread->heap_allocator->malloc(object_type2, 3, &thread->allocator_search_start_index);
+            auto* obj2 = (HeapObject*) thread->heap_allocator->malloc(object_type2, 3, &thread->allocator_search_start_index);
+            auto* obj3 = (HeapObject*) thread->heap_allocator->malloc(object_type2, 3, &thread->allocator_search_start_index);
             object_lock(module_object);
             created_objects.push_back(obj1);
             created_objects.push_back(obj2);
             created_objects.push_back(obj3);
             object_unlock(module_object);
-            auto* field_obj1 = get_clone_object_field(module_object, get_10());
-            auto* field_obj2 = get_clone_object_field(module_object, get_10());
-            auto* field_obj3 = get_clone_object_field(module_object, get_10());
-            set_move_object_field(virtual_machine->get_cycle_collector(), field_obj1, get_10() % 2, obj1);
-            set_move_object_field(virtual_machine->get_cycle_collector(), field_obj2, get_10() % 2, obj2);
-            set_move_object_field(virtual_machine->get_cycle_collector(), field_obj3, get_10() % 2, obj3);
-            decrease_reference_count(virtual_machine->get_cycle_collector(), field_obj1);
-            decrease_reference_count(virtual_machine->get_cycle_collector(), field_obj2);
-            decrease_reference_count(virtual_machine->get_cycle_collector(), field_obj3);
+            set_move_object_field(virtual_machine->get_cycle_collector(), module_object, get_10(), obj1);
+            set_move_object_field(virtual_machine->get_cycle_collector(), module_object, get_10(), obj2);
+            set_move_object_field(virtual_machine->get_cycle_collector(), module_object, get_10(), obj3);
         } else {
             auto* obj1 = get_clone_object_field(module_object, get_10());
             auto* obj2 = get_clone_object_field(module_object, get_10());
             auto* obj3 = get_clone_object_field(module_object, get_10());
             if (get_10() % 2 == 0) {
-                set_move_object_field(virtual_machine->get_cycle_collector(), obj1, get_10() % 2, obj2);
+                set_clone_object_field(virtual_machine->get_cycle_collector(), obj1, get_10() % 2, obj2);
                 set_move_object_field(virtual_machine->get_cycle_collector(), obj2, get_10() % 2, obj3);
                 decrease_reference_count(virtual_machine->get_cycle_collector(), obj1);
+                decrease_reference_count(virtual_machine->get_cycle_collector(), obj2);
+                //decrease_reference_count(virtual_machine->get_cycle_collector(), obj3);
             } else {
-                set_move_object_field(virtual_machine->get_cycle_collector(), obj1, get_10() % 2, obj2);
-                set_move_object_field(virtual_machine->get_cycle_collector(), obj2, get_10() % 2, obj3);
-                set_move_object_field(virtual_machine->get_cycle_collector(), obj3, get_10() % 2, obj1);
+                set_clone_object_field(virtual_machine->get_cycle_collector(), obj1, get_10() % 2, obj2);
+                set_clone_object_field(virtual_machine->get_cycle_collector(), obj2, get_10() % 2, obj3);
+                set_clone_object_field(virtual_machine->get_cycle_collector(), obj3, get_10() % 2, obj1);
+                decrease_reference_count(virtual_machine->get_cycle_collector(), obj1);
+                decrease_reference_count(virtual_machine->get_cycle_collector(), obj2);
+                decrease_reference_count(virtual_machine->get_cycle_collector(), obj3);
             }
         }
     }
+    printf("END!\n");
     return nullptr;
 }
 
 void* func2(void* args) {
-    this_thread::sleep_for(std::chrono::milliseconds(1000));
-    printf("CONCURRENT COLLECT START!\n");
-    virtual_machine->get_cycle_collector()->collect_cycles();
-    printf("CONCURRENT COLLECT END!\n");
+    while (true) {
+        if (task_flag.load(std::memory_order_acquire)) {
+            break;
+        }
+        this_thread::sleep_for(std::chrono::milliseconds(5000));
+        printf("CONCURRENT COLLECT START!\n");
+        virtual_machine->get_cycle_collector()->collect_cycles();
+        printf("CONCURRENT COLLECT END!\n");
+    }
     return nullptr;
 }
 
@@ -310,6 +325,8 @@ int main()
     std::cout << "Hello World!\n";
 
     setup_virtual_machine();
+
+    create_random_map();
 
     size_t in = 0;
     heap_object = (HeapObject*) virtual_machine->get_heap_allocator()->malloc(nullptr, 2, &in);
@@ -359,18 +376,26 @@ int main()
     pthread_join(pthread1, nullptr);
     pthread_join(pthread2, nullptr);
     pthread_join(pthread3, nullptr);
+
+    task_flag.store(true, std::memory_order_release);
+
+    unordered_map<HeapObject*, size_t> count_cache_map;
+    for (auto& object : created_objects) {
+        count_cache_map[object] = object->count.load(std::memory_order_acquire);
+    }
+
     pthread_join(pthread4, nullptr);
     //func1(nullptr);
     decrease_reference_count(virtual_machine->get_cycle_collector(), module_object);
     printf("COLLECT START!\n");
     virtual_machine->get_cycle_collector()->collect_cycles();
-    printf("COLLECT START!\n");
+    printf("COLLECT END!\n");
     //printf("START! %llu %llu\n", get_10_random(), get_10());
     for (auto& object : created_objects) {
         size_t object_flag = object->flag.load(std::memory_order_acquire);
         if (object_flag != 0) {
             const char* is_new_field_obj = object->field_length == 3 ? "true" : "false";
-            printf("NOT DEAD! %s : %llu : %llu [%p] ", is_new_field_obj, object->count.load(std::memory_order_acquire), object_flag, object);
+            printf("NOT DEAD! %s : %llu(%llu) : %llu [%p] ", is_new_field_obj, object->count.load(std::memory_order_acquire), count_cache_map[object], object_flag, object);
 
             auto** fields = (HeapObject**) (object + 1);
             auto* object_type = (Type*) object->type_info;
