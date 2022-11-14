@@ -379,12 +379,12 @@ int main()
 
     task_flag.store(true, std::memory_order_release);
 
+    pthread_join(pthread4, nullptr);
+
     unordered_map<HeapObject*, size_t> count_cache_map;
     for (auto& object : created_objects) {
         count_cache_map[object] = object->count.load(std::memory_order_acquire);
     }
-
-    pthread_join(pthread4, nullptr);
     //func1(nullptr);
     decrease_reference_count(virtual_machine->get_cycle_collector(), module_object);
     printf("COLLECT START!\n");

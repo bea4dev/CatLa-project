@@ -25,13 +25,13 @@ inline void object_unlock(HeapObject* object) {
 }
 
 inline uint64_t get_object_field(HeapObject* object, size_t field_index) {
-    auto* ptr = (size_t*) object;
-    return ptr[field_index + 5];
+    auto** field_ptr = ((HeapObject**) (object + 1)) + field_index;
+    return (uint64_t) *field_ptr;
 }
 
 inline void set_object_field(HeapObject* object, size_t field_index, uint64_t value) {
-    auto* ptr = (size_t*) object;
-    ptr[field_index + 5] = value;
+    auto** field_ptr = ((HeapObject**) (object + 1)) + field_index;
+    *field_ptr = (HeapObject*) value;
 }
 
 inline void set_object_flag_non_atomic(HeapObject* object, size_t flag) {

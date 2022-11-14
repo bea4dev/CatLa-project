@@ -22,14 +22,14 @@ void CycleCollector::collect_cycles() {
     this->suspected_object_list = new vector<HeapObject*>;
     list_lock.unlock();
 
-    vector<HeapObject*> release_objects;
+    unordered_set<HeapObject*> release_objects;
 
     //Collect all suspected objets
     for (auto& object_ptr : *suspected_object_list_old) {
         size_t object_ptr_flag = object_ptr->flag.load(std::memory_order_acquire);
-        if (object_ptr_flag == 3) {
+        if (object_ptr_flag == 3 || object_ptr_flag == 5) {
             atomic_thread_fence(std::memory_order_acquire);
-            release_objects.push_back(object_ptr);
+            release_objects.insert(object_ptr);
             continue;
         }
 
@@ -145,24 +145,21 @@ void CycleCollector::collect_cycles() {
                 printf("COLLECT WHITE! [%p] : %p %p\n", object, *((HeapObject**) (object + 1)), *((HeapObject**) (object + 1) + 1));
                 //object->flag.store(3, std::memory_order_release);
                 //atomic_thread_fence(std::memory_order_acquire);
-                release_objects.push_back(object);
+                release_objects.insert(object);
             } else {
                 //printf("FLAG [%p] : %llu : %llu\n", object, object_flag, object->count.load(std::memory_order_acquire));
                 object->flag.store(1, std::memory_order_release);
             }
+        }
+
+        for (auto& object : collecting_objects) {
             object_unlock(object);
         }
 
         this->collect_lock.write_unlock();
     }
 
-    unordered_set<HeapObject*> released;
-
     for (auto& object : release_objects) {
-        if (released.find(object) != released.end()) {
-            continue;
-        }
-
         auto* object_type = (Type*) object->type_info;
         size_t field_length = object->field_length;
         auto** fields = (HeapObject**) (object + 1);
@@ -190,7 +187,6 @@ void CycleCollector::collect_cycles() {
         }
 
         //Release
-        released.insert(object);
         //object->count.store(0, std::memory_order_release);
         object->flag.store(0, std::memory_order_release);
     }
