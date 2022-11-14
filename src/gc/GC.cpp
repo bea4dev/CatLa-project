@@ -27,6 +27,9 @@ void CycleCollector::collect_cycles() {
     //Collect all suspected objets
     for (auto& object_ptr : *suspected_object_list_old) {
         size_t object_ptr_flag = object_ptr->flag.load(std::memory_order_acquire);
+        if (object_ptr_flag == 0) {
+            continue;
+        }
         if (object_ptr_flag == 3 || object_ptr_flag == 5) {
             atomic_thread_fence(std::memory_order_acquire);
             release_objects.insert(object_ptr);
@@ -145,6 +148,7 @@ void CycleCollector::collect_cycles() {
                 printf("COLLECT WHITE! [%p] : %p %p\n", object, *((HeapObject**) (object + 1)), *((HeapObject**) (object + 1) + 1));
                 //object->flag.store(3, std::memory_order_release);
                 //atomic_thread_fence(std::memory_order_acquire);
+                white_objects.push_back(object);
                 release_objects.insert(object);
             } else {
                 //printf("FLAG [%p] : %llu : %llu\n", object, object_flag, object->count.load(std::memory_order_acquire));
@@ -176,6 +180,8 @@ void CycleCollector::collect_cycles() {
                     if (is_cycle_type) {
                         if (object_flag == 5) {
                             if (field_object_flag == 1 || field_object_flag == 2) {
+                                printf("DEC! [%p]\n", field_object);
+                                dec_objects.push_back(field_object);
                                 decrease_reference_count(this, field_object);
                             }
                         }

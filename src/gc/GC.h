@@ -19,6 +19,9 @@ namespace gc {
         SpinLock list_lock;
         vector<HeapObject*>* suspected_object_list;
         pthread_mutex_t collector_lock;
+    public:
+        vector<HeapObject*> white_objects;
+        vector<HeapObject*> dec_objects;
 
     public:
         RWLock collect_lock;

@@ -382,8 +382,10 @@ int main()
     pthread_join(pthread4, nullptr);
 
     unordered_map<HeapObject*, size_t> count_cache_map;
+    unordered_map<HeapObject*, size_t> flag_cache_map;
     for (auto& object : created_objects) {
         count_cache_map[object] = object->count.load(std::memory_order_acquire);
+        flag_cache_map[object] = object->flag.load(std::memory_order_acquire);
     }
     //func1(nullptr);
     decrease_reference_count(virtual_machine->get_cycle_collector(), module_object);
@@ -397,8 +399,25 @@ int main()
     for (auto& object : created_objects) {
         size_t object_flag = object->flag.load(std::memory_order_acquire);
         if (object_flag != 0) {
+            bool is_white = false;
+            for (auto& white_object : virtual_machine->get_cycle_collector()->white_objects) {
+                if (white_object == object) {
+                    is_white = true;
+                    break;
+                }
+            }
+            bool is_dec = false;
+            for (auto& dec_object : virtual_machine->get_cycle_collector()->dec_objects) {
+                if (dec_object == object) {
+                    is_dec = true;
+                    break;
+                }
+            }
+            const char* white = is_white ? "true" : "false";
+            const char* dec = is_dec ? "true" : "false";
+
             const char* is_new_field_obj = object->field_length == 3 ? "true" : "false";
-            printf("NOT DEAD! %s : %llu(%llu) : %llu [%p] ", is_new_field_obj, object->count.load(std::memory_order_acquire), count_cache_map[object], object_flag, object);
+            printf("NOT DEAD! %s : %llu(%llu) : %llu(%llu) : %s : %s : [%p] ", is_new_field_obj, object->count.load(std::memory_order_acquire), count_cache_map[object], object_flag, flag_cache_map[object], white, dec, object);
 
             auto** fields = (HeapObject**) (object + 1);
             auto* object_type = (Type*) object->type_info;
@@ -431,7 +450,25 @@ int main()
         break_field_loop:
 
         size_t object_flag = object->flag.load(std::memory_order_acquire);
-        printf("%llu(%llu) : %llu [%p] ", object->count.load(std::memory_order_acquire), count_cache_map[object], object_flag, object);
+
+        bool is_white = false;
+        for (auto& white_object : virtual_machine->get_cycle_collector()->white_objects) {
+            if (white_object == object) {
+                is_white = true;
+                break;
+            }
+        }
+        bool is_dec = false;
+        for (auto& dec_object : virtual_machine->get_cycle_collector()->dec_objects) {
+            if (dec_object == object) {
+                is_dec = true;
+                break;
+            }
+        }
+        const char* white = is_white ? "true" : "false";
+        const char* dec = is_dec ? "true" : "false";
+
+        printf("%llu(%llu) : %llu(%llu) : %s : %s : [%p] ", object->count.load(std::memory_order_acquire), count_cache_map[object], object_flag, flag_cache_map[object], white, dec, object);
         for (size_t s = 0; s < field_length; s++) {
             printf("%p ", fields[s]);
         }
