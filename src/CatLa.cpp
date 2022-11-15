@@ -118,6 +118,7 @@ inline HeapObject* get_object_field_atomic(HeapObject* parent, size_t field_inde
 }
 
 inline void set_clone_object_field(CycleCollector* cycle_collector, HeapObject* parent, size_t field_index, HeapObject* field_object) {
+    cycle_collector->collect_lock.read_lock();
     increase_reference_count(field_object);
     auto** field_ptr = ((HeapObject**) (parent + 1)) + field_index;
     HeapObject* old_field_object;
@@ -134,9 +135,11 @@ inline void set_clone_object_field(CycleCollector* cycle_collector, HeapObject* 
     if (old_field_object != nullptr) {
         decrease_reference_count(cycle_collector, old_field_object);
     }
+    cycle_collector->collect_lock.read_unlock();
 }
 
-inline HeapObject* get_clone_object_field(HeapObject* parent, size_t field_index) {
+inline HeapObject* get_clone_object_field(CycleCollector* cycle_collector, HeapObject* parent, size_t field_index) {
+    cycle_collector->collect_lock.read_lock();
     auto** field_ptr = ((HeapObject**) (parent + 1)) + field_index;
     while (true) {
         object_lock(parent);
@@ -146,6 +149,7 @@ inline HeapObject* get_clone_object_field(HeapObject* parent, size_t field_index
                 increase_reference_count(field_object);
             }
             object_unlock(parent);
+            cycle_collector->collect_lock.read_unlock();
             return field_object;
         }
         object_unlock(parent);
@@ -153,6 +157,7 @@ inline HeapObject* get_clone_object_field(HeapObject* parent, size_t field_index
 }
 
 inline void set_move_object_field(CycleCollector* cycle_collector, HeapObject* parent, size_t field_index, HeapObject* field_object) {
+    cycle_collector->collect_lock.read_lock();
     auto** field_ptr = ((HeapObject**) (parent + 1)) + field_index;
     HeapObject* old_field_object;
     while (true) {
@@ -168,9 +173,11 @@ inline void set_move_object_field(CycleCollector* cycle_collector, HeapObject* p
     if (old_field_object != nullptr) {
         decrease_reference_count(cycle_collector, old_field_object);
     }
+    cycle_collector->collect_lock.read_unlock();
 }
 
-inline HeapObject* get_move_object_field(HeapObject* parent, size_t field_index) {
+inline HeapObject* get_move_object_field(CycleCollector* cycle_collector, HeapObject* parent, size_t field_index) {
+    cycle_collector->collect_lock.read_lock();
     auto** field_ptr = ((HeapObject**) (parent + 1)) + field_index;
     HeapObject* field_object;
     while (true) {
@@ -184,6 +191,7 @@ inline HeapObject* get_move_object_field(HeapObject* parent, size_t field_index)
         }
         object_unlock(parent);
     }
+    cycle_collector->collect_lock.read_unlock();
     return field_object;
 }
 
@@ -279,9 +287,9 @@ void* func1(void* args) {
             set_move_object_field(virtual_machine->get_cycle_collector(), module_object, get_10(), obj2);
             set_move_object_field(virtual_machine->get_cycle_collector(), module_object, get_10(), obj3);
         } else {
-            auto* obj1 = get_clone_object_field(module_object, get_10());
-            auto* obj2 = get_clone_object_field(module_object, get_10());
-            auto* obj3 = get_clone_object_field(module_object, get_10());
+            auto* obj1 = get_clone_object_field(virtual_machine->get_cycle_collector(), module_object, get_10());
+            auto* obj2 = get_clone_object_field(virtual_machine->get_cycle_collector(), module_object, get_10());
+            auto* obj3 = get_clone_object_field(virtual_machine->get_cycle_collector(), module_object, get_10());
             if (get_10() % 2 == 0) {
                 set_clone_object_field(virtual_machine->get_cycle_collector(), obj1, get_10() % 2, obj2);
                 set_move_object_field(virtual_machine->get_cycle_collector(), obj2, get_10() % 2, obj3);
@@ -372,14 +380,14 @@ int main()
     pthread_create(&pthread1, &thread_attribute, func1, nullptr);
     pthread_create(&pthread2, &thread_attribute, func1, nullptr);
     pthread_create(&pthread3, &thread_attribute, func1, nullptr);
-    //pthread_create(&pthread4, &thread_attribute, func2, nullptr);
+    pthread_create(&pthread4, &thread_attribute, func2, nullptr);
     pthread_join(pthread1, nullptr);
     pthread_join(pthread2, nullptr);
     pthread_join(pthread3, nullptr);
 
     task_flag.store(true, std::memory_order_release);
 
-    //pthread_join(pthread4, nullptr);
+    pthread_join(pthread4, nullptr);
 
     unordered_map<HeapObject*, size_t> count_cache_map;
     unordered_map<HeapObject*, size_t> flag_cache_map;

@@ -34,9 +34,6 @@ void CycleCollector::collect_cycles() {
             continue;
         }*/
         if (object_ptr_flag == 3 || object_ptr_flag == 5) {
-            if (object_ptr_flag == 5) {
-                printf("!!!!!!!!!!!!!!\n");
-            }
             atomic_thread_fence(std::memory_order_acquire);
             release_objects.insert(object_ptr);
             continue;
@@ -185,6 +182,7 @@ void CycleCollector::collect_cycles() {
                     size_t field_object_flag = field_object->flag.load(std::memory_order_acquire);
                     if (is_cycle_type) {
                         if (object_flag == 5) {
+                            //printf("5!!\n");
                             if (field_object_flag == 1 || field_object_flag == 2) {
                                 //printf("DEC! [%p]\n", field_object);
                                 //dec_objects.push_back(field_object);

@@ -65,6 +65,9 @@ inline void decrease_reference_count(CycleCollector* cycle_collector, HeapObject
 
         size_t previous_count = current_object->count.fetch_sub(1, std::memory_order_release);
         atomic_thread_fence(std::memory_order_acquire);
+        if (previous_count == 0) {
+            printf("0!!! : %llu [%p]\n", current_object->flag.load(std::memory_order_acquire), current_object);
+        }
 
         if (is_cycling_type) {
             //printf("CYCLE! : %llu\n", previous_count);
