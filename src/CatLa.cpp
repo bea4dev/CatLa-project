@@ -265,7 +265,7 @@ atomic_bool task_flag(false);
 void* func1(void* args) {
     printf("START!\n");
     auto* thread = virtual_machine->create_thread(2048);
-    for (size_t s = 0; s < 10000000; s++) {
+    for (size_t s = 0; s < 100000; s++) {
         if (get_10() % 2 == 0) {
             auto* obj1 = (HeapObject*) thread->heap_allocator->malloc(object_type2, 3, &thread->allocator_search_start_index);
             auto* obj2 = (HeapObject*) thread->heap_allocator->malloc(object_type2, 3, &thread->allocator_search_start_index);
@@ -307,7 +307,7 @@ void* func2(void* args) {
         if (task_flag.load(std::memory_order_acquire)) {
             break;
         }
-        this_thread::sleep_for(std::chrono::milliseconds(5000));
+        //this_thread::sleep_for(std::chrono::milliseconds(5000));
         printf("CONCURRENT COLLECT START!\n");
         virtual_machine->get_cycle_collector()->collect_cycles();
         printf("CONCURRENT COLLECT END!\n");
@@ -372,14 +372,14 @@ int main()
     pthread_create(&pthread1, &thread_attribute, func1, nullptr);
     pthread_create(&pthread2, &thread_attribute, func1, nullptr);
     pthread_create(&pthread3, &thread_attribute, func1, nullptr);
-    pthread_create(&pthread4, &thread_attribute, func2, nullptr);
+    //pthread_create(&pthread4, &thread_attribute, func2, nullptr);
     pthread_join(pthread1, nullptr);
     pthread_join(pthread2, nullptr);
     pthread_join(pthread3, nullptr);
 
     task_flag.store(true, std::memory_order_release);
 
-    pthread_join(pthread4, nullptr);
+    //pthread_join(pthread4, nullptr);
 
     unordered_map<HeapObject*, size_t> count_cache_map;
     unordered_map<HeapObject*, size_t> flag_cache_map;

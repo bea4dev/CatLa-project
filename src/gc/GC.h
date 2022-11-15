@@ -73,7 +73,7 @@ inline void decrease_reference_count(CycleCollector* cycle_collector, HeapObject
                 if (previous_flag == 3) {
                     //Probably won't happen.
                     printf("??\n");
-                } else {
+                } else if (previous_flag != 2) {
                     cycle_collector->add_suspected_object(current_object);
                 }
             }
@@ -106,7 +106,8 @@ inline void decrease_reference_count(CycleCollector* cycle_collector, HeapObject
         size_t field_length = current_object->field_length;
         auto** fields = (HeapObject**) (current_object + 1);
         for (size_t i = 0; i < field_length; i++) {
-            if (get_flag(current_object_type->reference_fields, i)) {
+            auto* reference_fields = current_object_type->reference_fields;
+            if (get_flag(reference_fields, i)) {
                 auto* field_object = fields[i];
                 if (field_object != nullptr) {
                     check_objects.push(field_object);

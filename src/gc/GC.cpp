@@ -27,10 +27,16 @@ void CycleCollector::collect_cycles() {
     //Collect all suspected objets
     for (auto& object_ptr : *suspected_object_list_old) {
         size_t object_ptr_flag = object_ptr->flag.load(std::memory_order_acquire);
+        /*
         if (object_ptr_flag == 0) {
+            printf("0!! [%p]\n", object_ptr);
+            this->collect_lock.write_unlock();
             continue;
-        }
+        }*/
         if (object_ptr_flag == 3 || object_ptr_flag == 5) {
+            if (object_ptr_flag == 5) {
+                printf("!!!!!!!!!!!!!!\n");
+            }
             atomic_thread_fence(std::memory_order_acquire);
             release_objects.insert(object_ptr);
             continue;
@@ -138,14 +144,14 @@ void CycleCollector::collect_cycles() {
             check_objects.pop();
         }
 
-        printf("COLLECT!\n");
+        //printf("COLLECT!\n");
         //Release white.
         for (auto& object : collecting_objects) {
             size_t object_flag = object->flag.load(std::memory_order_acquire);
             if (object_flag == 5) {
                 //If object is white
                 //Release
-                printf("COLLECT WHITE! [%p] : %p %p\n", object, *((HeapObject**) (object + 1)), *((HeapObject**) (object + 1) + 1));
+                //printf("COLLECT WHITE! [%p] : %p %p\n", object, *((HeapObject**) (object + 1)), *((HeapObject**) (object + 1) + 1));
                 //object->flag.store(3, std::memory_order_release);
                 //atomic_thread_fence(std::memory_order_acquire);
                 white_objects.push_back(object);
@@ -180,20 +186,25 @@ void CycleCollector::collect_cycles() {
                     if (is_cycle_type) {
                         if (object_flag == 5) {
                             if (field_object_flag == 1 || field_object_flag == 2) {
-                                printf("DEC! [%p]\n", field_object);
-                                dec_objects.push_back(field_object);
-                                decrease_reference_count(this, field_object);
+                                //printf("DEC! [%p]\n", field_object);
+                                //dec_objects.push_back(field_object);
+                                //decrease_reference_count(this, field_object);
+                            } else {
+                                //printf("NOT DEC! %llu [%p]\n", field_object_flag, field_object);
                             }
                         }
                     } else {
-                        decrease_reference_count(this, field_object);
+                        //decrease_reference_count(this, field_object);
                     }
                 }
             }
         }
-
         //Release
-        //object->count.store(0, std::memory_order_release);
+        //object->flag.store(0, std::memory_order_release);
+    }
+
+    for (auto& object : release_objects) {
+        //Release
         object->flag.store(0, std::memory_order_release);
     }
 
