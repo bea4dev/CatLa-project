@@ -308,9 +308,9 @@ void* func2(void* args) {
             break;
         }
         //this_thread::sleep_for(std::chrono::milliseconds(5000));
-        printf("CONCURRENT COLLECT START!\n");
+        //printf("CONCURRENT COLLECT START!\n");
         virtual_machine->get_cycle_collector()->collect_cycles();
-        printf("CONCURRENT COLLECT END!\n");
+        //printf("CONCURRENT COLLECT END!\n");
     }
     return nullptr;
 }

@@ -7,6 +7,7 @@
 #include <vm/modules/Type.h>
 #include <vm/modules/util/BitSet.h>
 #include <pthread.h>
+#include <unordered_set>
 
 using namespace std;
 using namespace concurrent;
@@ -17,7 +18,7 @@ namespace gc {
     private:
         void* vm;
         SpinLock list_lock;
-        vector<HeapObject*>* suspected_object_list;
+        unordered_set<HeapObject*>* suspected_object_list;
         pthread_mutex_t collector_lock;
     public:
         vector<HeapObject*> white_objects;
@@ -30,7 +31,7 @@ namespace gc {
         explicit CycleCollector(void* vm);
         inline void add_suspected_object(HeapObject* object) {
             list_lock.lock();
-            suspected_object_list->push_back(object);
+            suspected_object_list->insert(object);
             list_lock.unlock();
         }
         void collect_cycles();

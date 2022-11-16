@@ -1,12 +1,11 @@
 #include <gc/GC.h>
 #include <unordered_map>
-#include <unordered_set>
 
 using namespace gc;
 
 CycleCollector::CycleCollector(void* vm) {
     this->vm = vm;
-    this->suspected_object_list = new vector<HeapObject*>;
+    this->suspected_object_list = new unordered_set<HeapObject*>;
     this->collector_lock = PTHREAD_MUTEX_INITIALIZER;
 }
 
@@ -19,7 +18,7 @@ void CycleCollector::collect_cycles() {
     //Move list ptr
     list_lock.lock();
     auto* suspected_object_list_old = this->suspected_object_list;
-    this->suspected_object_list = new vector<HeapObject*>;
+    this->suspected_object_list = new unordered_set<HeapObject*>;
     list_lock.unlock();
 
     unordered_set<HeapObject*> release_objects;
@@ -37,6 +36,9 @@ void CycleCollector::collect_cycles() {
             atomic_thread_fence(std::memory_order_acquire);
             release_objects.insert(object_ptr);
             continue;
+        }
+        if (object_ptr_flag == 10) {
+            printf("10!!!!!!!!!!!!!!!!! [%p]\n", object_ptr);
         }
 
         auto* current_object = object_ptr;
@@ -69,6 +71,11 @@ void CycleCollector::collect_cycles() {
                 if (get_flag(current_object_type->reference_fields, i)) {
                     auto* field_object = fields[i];
                     if (field_object != nullptr) {
+                        size_t field_object_flag = field_object->flag.load(std::memory_order_acquire);
+                        if (field_object_flag == 5) {
+                            continue;
+                        }
+
                         if (field_object->flag.load(std::memory_order_acquire) == 4) {
                             //Is gray.
                             size_t field_object_reference_count = object_reference_count_map[field_object];
@@ -117,6 +124,9 @@ void CycleCollector::collect_cycles() {
                     auto* field_object = fields[i];
                     if (field_object != nullptr) {
                         size_t field_object_flag = field_object->flag.load(std::memory_order_acquire);
+                        if (field_object_flag == 5) {
+                            continue;
+                        }
 
                         if (object_flag == 6) {
                             //If current object is black.
@@ -148,7 +158,7 @@ void CycleCollector::collect_cycles() {
             if (object_flag == 5) {
                 //If object is white
                 //Release
-                printf("COLLECT WHITE! [%p] : %p %p\n", object, *((HeapObject**) (object + 1)), *((HeapObject**) (object + 1) + 1));
+                //printf("COLLECT WHITE! [%p] : %p %p\n", object, *((HeapObject**) (object + 1)), *((HeapObject**) (object + 1) + 1));
                 //object->flag.store(3, std::memory_order_release);
                 //atomic_thread_fence(std::memory_order_acquire);
                 white_objects.push_back(object);
@@ -184,7 +194,7 @@ void CycleCollector::collect_cycles() {
                         if (object_flag == 5) {
                             //printf("5!!\n");
                             if (field_object_flag == 1 || field_object_flag == 2) {
-                                printf("DEC! [%p]\n", field_object);
+                                printf("DEC! [%p] : %llu : %llu\n", field_object, field_object_flag, field_object->flag.load(std::memory_order_acquire));
                                 dec_objects.push_back(field_object);
                                 decrease_reference_count(this, field_object);
                             } else {
@@ -200,9 +210,13 @@ void CycleCollector::collect_cycles() {
         //Release
         //object->flag.store(0, std::memory_order_release);
     }
+    atomic_thread_fence(std::memory_order_acquire);
 
     for (auto& object : release_objects) {
         //Release
+        list_lock.lock();
+        suspected_object_list->erase(object);
+        list_lock.unlock();
         object->flag.store(10, std::memory_order_release);
     }
 
