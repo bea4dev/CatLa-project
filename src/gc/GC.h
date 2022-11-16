@@ -120,7 +120,7 @@ inline void decrease_reference_count(CycleCollector* cycle_collector, HeapObject
 
         if (!is_cycling_type) {
             //Release object.
-            current_object->flag.store(0, std::memory_order_release);
+            current_object->flag.store(10, std::memory_order_release);
         }
 
         if (check_objects.empty()) {

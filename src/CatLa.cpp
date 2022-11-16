@@ -118,7 +118,6 @@ inline HeapObject* get_object_field_atomic(HeapObject* parent, size_t field_inde
 }
 
 inline void set_clone_object_field(CycleCollector* cycle_collector, HeapObject* parent, size_t field_index, HeapObject* field_object) {
-    cycle_collector->collect_lock.read_lock();
     increase_reference_count(field_object);
     auto** field_ptr = ((HeapObject**) (parent + 1)) + field_index;
     HeapObject* old_field_object;
@@ -135,11 +134,9 @@ inline void set_clone_object_field(CycleCollector* cycle_collector, HeapObject* 
     if (old_field_object != nullptr) {
         decrease_reference_count(cycle_collector, old_field_object);
     }
-    cycle_collector->collect_lock.read_unlock();
 }
 
 inline HeapObject* get_clone_object_field(CycleCollector* cycle_collector, HeapObject* parent, size_t field_index) {
-    cycle_collector->collect_lock.read_lock();
     auto** field_ptr = ((HeapObject**) (parent + 1)) + field_index;
     while (true) {
         object_lock(parent);
@@ -149,7 +146,6 @@ inline HeapObject* get_clone_object_field(CycleCollector* cycle_collector, HeapO
                 increase_reference_count(field_object);
             }
             object_unlock(parent);
-            cycle_collector->collect_lock.read_unlock();
             return field_object;
         }
         object_unlock(parent);
@@ -157,7 +153,6 @@ inline HeapObject* get_clone_object_field(CycleCollector* cycle_collector, HeapO
 }
 
 inline void set_move_object_field(CycleCollector* cycle_collector, HeapObject* parent, size_t field_index, HeapObject* field_object) {
-    cycle_collector->collect_lock.read_lock();
     auto** field_ptr = ((HeapObject**) (parent + 1)) + field_index;
     HeapObject* old_field_object;
     while (true) {
@@ -173,11 +168,9 @@ inline void set_move_object_field(CycleCollector* cycle_collector, HeapObject* p
     if (old_field_object != nullptr) {
         decrease_reference_count(cycle_collector, old_field_object);
     }
-    cycle_collector->collect_lock.read_unlock();
 }
 
 inline HeapObject* get_move_object_field(CycleCollector* cycle_collector, HeapObject* parent, size_t field_index) {
-    cycle_collector->collect_lock.read_lock();
     auto** field_ptr = ((HeapObject**) (parent + 1)) + field_index;
     HeapObject* field_object;
     while (true) {
@@ -191,7 +184,6 @@ inline HeapObject* get_move_object_field(CycleCollector* cycle_collector, HeapOb
         }
         object_unlock(parent);
     }
-    cycle_collector->collect_lock.read_unlock();
     return field_object;
 }
 
@@ -273,7 +265,7 @@ atomic_bool task_flag(false);
 void* func1(void* args) {
     printf("START!\n");
     auto* thread = virtual_machine->create_thread(2048);
-    for (size_t s = 0; s < 100000; s++) {
+    for (size_t s = 0; s < 10000000; s++) {
         if (get_10() % 2 == 0) {
             auto* obj1 = (HeapObject*) thread->heap_allocator->malloc(object_type2, 3, &thread->allocator_search_start_index);
             auto* obj2 = (HeapObject*) thread->heap_allocator->malloc(object_type2, 3, &thread->allocator_search_start_index);
@@ -406,7 +398,7 @@ int main()
 
     for (auto& object : created_objects) {
         size_t object_flag = object->flag.load(std::memory_order_acquire);
-        if (object_flag != 0) {
+        if (object_flag != 10) {
             bool is_white = false;
             for (auto& white_object : virtual_machine->get_cycle_collector()->white_objects) {
                 if (white_object == object) {
@@ -440,7 +432,7 @@ int main()
         }
     }
 
-    printf("--- TRACE INFO ---\n");
+    printf("--- LIVING OBJECTS INFO ---\n");
     for (auto& object : created_objects) {
         auto** fields = (HeapObject**) (object + 1);
         auto* object_type = (Type*) object->type_info;
@@ -482,7 +474,7 @@ int main()
         }
         printf("\n");
     }
-    printf("------------------\n");
+    printf("---------------------------\n");
 
     /*
     auto* t1 = (HeapObject*) virtual_machine->get_heap_allocator()->malloc(object_type2, 2, &j);

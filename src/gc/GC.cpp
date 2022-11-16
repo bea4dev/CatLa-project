@@ -148,7 +148,7 @@ void CycleCollector::collect_cycles() {
             if (object_flag == 5) {
                 //If object is white
                 //Release
-                //printf("COLLECT WHITE! [%p] : %p %p\n", object, *((HeapObject**) (object + 1)), *((HeapObject**) (object + 1) + 1));
+                printf("COLLECT WHITE! [%p] : %p %p\n", object, *((HeapObject**) (object + 1)), *((HeapObject**) (object + 1) + 1));
                 //object->flag.store(3, std::memory_order_release);
                 //atomic_thread_fence(std::memory_order_acquire);
                 white_objects.push_back(object);
@@ -184,15 +184,15 @@ void CycleCollector::collect_cycles() {
                         if (object_flag == 5) {
                             //printf("5!!\n");
                             if (field_object_flag == 1 || field_object_flag == 2) {
-                                //printf("DEC! [%p]\n", field_object);
-                                //dec_objects.push_back(field_object);
-                                //decrease_reference_count(this, field_object);
+                                printf("DEC! [%p]\n", field_object);
+                                dec_objects.push_back(field_object);
+                                decrease_reference_count(this, field_object);
                             } else {
                                 //printf("NOT DEC! %llu [%p]\n", field_object_flag, field_object);
                             }
                         }
                     } else {
-                        //decrease_reference_count(this, field_object);
+                        decrease_reference_count(this, field_object);
                     }
                 }
             }
@@ -203,7 +203,7 @@ void CycleCollector::collect_cycles() {
 
     for (auto& object : release_objects) {
         //Release
-        object->flag.store(0, std::memory_order_release);
+        object->flag.store(10, std::memory_order_release);
     }
 
     delete suspected_object_list_old;
