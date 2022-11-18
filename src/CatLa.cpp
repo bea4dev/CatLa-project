@@ -311,7 +311,7 @@ void* func2(void* args) {
         }
         //this_thread::sleep_for(std::chrono::milliseconds(5000));
         //printf("CONCURRENT COLLECT START!\n");
-        //virtual_machine->get_cycle_collector()->collect_cycles();
+        //virtual_machine->get_cycle_collector()->process_cycles();
         //printf("CONCURRENT COLLECT END!\n");
     }
     return nullptr;
@@ -405,7 +405,7 @@ int main()
             printf("DEAD!\n");
         }
     }
-    virtual_machine->get_cycle_collector()->collect_cycles();
+    virtual_machine->get_cycle_collector()->process_cycles();
     printf("COLLECT OK!\n");
     for (auto& object : created_objects) {
         if (object->flag.load(std::memory_order_acquire) != 0) {

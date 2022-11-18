@@ -16,7 +16,7 @@ enum object_color : uint32_t {
 
 typedef struct {
     atomic_size_t count;
-    atomic_size_t crc;
+    size_t crc;
     atomic_uint32_t color;
     atomic_uint32_t buffered;
     size_t lock_flag;

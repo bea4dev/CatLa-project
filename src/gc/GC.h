@@ -20,6 +20,7 @@ namespace gc {
         SpinLock list_lock;
         unordered_set<HeapObject*>* suspected_object_list;
         pthread_mutex_t collector_lock;
+        vector<unordered_set<HeapObject*>> cycle_buffer;
 
     public:
         RWLock collect_lock;
@@ -31,7 +32,19 @@ namespace gc {
             suspected_object_list->insert(object);
             list_lock.unlock();
         }
-        void collect_cycles();
+        void process_cycles();
+
+    private:
+        void free_cycles();
+        void collect_cycles(unordered_set<HeapObject*>* roots);
+        void sigma_preparation();
+        void mark_roots(unordered_set<HeapObject*>* roots);
+        void scan_roots(unordered_set<HeapObject*>* roots);
+        void scan(HeapObject* s);
+        void collect_roots(unordered_set<HeapObject*>* roots);
+        void mark_gray(HeapObject* s);
+        void collect_white(HeapObject* s, unordered_set<HeapObject*>& current_cycle);
+
     };
 }
 
@@ -49,7 +62,6 @@ inline void scan_black(HeapObject* object) {
         auto** fields = (HeapObject**) (current_object + 1);
         size_t field_length = current_object->field_length;
 
-        object_lock(current_object);
         for (size_t i = 0; i < field_length; i++) {
             auto* field_object = fields[i];
             if (field_object != nullptr) {
@@ -59,7 +71,6 @@ inline void scan_black(HeapObject* object) {
                 }
             }
         }
-        object_unlock(current_object);
 
         if (check_objects.empty()) {
             break;
@@ -69,13 +80,9 @@ inline void scan_black(HeapObject* object) {
     }
 }
 
-void possible_roots(CycleCollector* cycle_collector, HeapObject* object) {
-    scan_black(object);
-    object->color.store(object_color::purple, std::memory_order_release);
-    uint32_t expected = 0;
-    if (object->buffered.compare_exchange_strong(expected, 1, std::memory_order_seq_cst)) {
-        cycle_collector->add_suspected_object(object);
-    }
+namespace gc {
+    void possible_roots(CycleCollector* cycle_collector, HeapObject* object);
+    void release(CycleCollector* cycle_collector, HeapObject* object);
 }
 
 inline void increment_reference_count(HeapObject* object) {
@@ -88,7 +95,7 @@ inline void decrement_reference_count(CycleCollector* cycle_collector, HeapObjec
     size_t previous_count = object->count.fetch_sub(1, std::memory_order_release);
     atomic_thread_fence(std::memory_order_acquire);
     if (previous_count == 1) {
-
+        release(cycle_collector, object);
     } else {
         possible_roots(cycle_collector, object);
     }
