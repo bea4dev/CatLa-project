@@ -4,12 +4,24 @@
 
 using namespace concurrent;
 
+enum object_color : uint32_t {
+    non_color,
+    black,
+    white,
+    gray,
+    orange,
+    red,
+    purple
+};
+
 typedef struct {
-    atomic_size_t count; //8byte
-    atomic_size_t flag; //8byte
-    size_t lock_flag; //8byte
-    size_t field_length; //8byte
-    void* type_info; //8byte
+    atomic_size_t count;
+    atomic_size_t crc;
+    atomic_uint32_t color;
+    atomic_uint32_t buffered;
+    size_t lock_flag;
+    size_t field_length;
+    void* type_info;
 } HeapObject;
 
 inline void object_lock(HeapObject* object) {
@@ -33,11 +45,6 @@ inline void set_object_field(HeapObject* object, size_t field_index, uint64_t va
     auto** field_ptr = ((HeapObject**) (object + 1)) + field_index;
     *field_ptr = (HeapObject*) value;
 }
-
-inline void set_object_flag_non_atomic(HeapObject* object, size_t flag) {
-    *((size_t*) &object->flag) = flag;
-}
-
 
 typedef struct {
     uint8_t* entry_position;

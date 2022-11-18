@@ -107,7 +107,7 @@ void* HeapChunk::malloc(void* type_info, size_t index, size_t block_size, size_t
 
         for (size_t i = 0; i < cells_size_; i++) {
             auto* object = (HeapObject*) current_entry;
-            if (object->flag != 0) {
+            if (object->color != 0) {
                 current_entry += block_size;
                 current_entry_index++;
                 if (current_entry_index == cells_size_) {
@@ -118,8 +118,8 @@ void* HeapChunk::malloc(void* type_info, size_t index, size_t block_size, size_t
             }
 
             if (is_thread_safe) {
-                size_t expected = 0;
-                if (!object->flag.compare_exchange_strong(expected, 1, std::memory_order_acquire)) {
+                uint32_t expected = 0;
+                if (!object->color.compare_exchange_strong(expected, 1, std::memory_order_acquire)) {
                     current_entry += block_size;
                     current_entry_index++;
                     if (current_entry_index == cells_size_) {
@@ -129,7 +129,7 @@ void* HeapChunk::malloc(void* type_info, size_t index, size_t block_size, size_t
                     continue;
                 }
             } else {
-                if (object->flag.load(std::memory_order_acquire) != 0) {
+                if (object->color.load(std::memory_order_acquire) != 0) {
                     current_entry += block_size;
                     current_entry_index++;
                     if (current_entry_index == cells_size_) {
@@ -148,7 +148,7 @@ void* HeapChunk::malloc(void* type_info, size_t index, size_t block_size, size_t
 
             object->type_info = type_info;
             object->field_length = field_length;
-            object->flag.store(1, std::memory_order_relaxed);
+            object->color.store(object_color::black, std::memory_order_relaxed);
             object->count.store(1, std::memory_order_release);
 
             return object;

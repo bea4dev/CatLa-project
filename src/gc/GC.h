@@ -20,9 +20,6 @@ namespace gc {
         SpinLock list_lock;
         unordered_set<HeapObject*>* suspected_object_list;
         pthread_mutex_t collector_lock;
-    public:
-        vector<HeapObject*> white_objects;
-        vector<HeapObject*> dec_objects;
 
     public:
         RWLock collect_lock;
@@ -40,89 +37,29 @@ namespace gc {
 
 using namespace gc;
 
-inline void increase_reference_count(HeapObject* object) {
-    object->count.fetch_add(1, std::memory_order_relaxed);
-}
+inline void scan_black(HeapObject* object) {
+    if (object->color.load(std::memory_order_acquire) == object_color::black) {
+        return;
+    }
+    object->color.store(object_color::black, std::memory_order_release);
 
-inline void decrease_reference_count(CycleCollector* cycle_collector, HeapObject* object) {
-    auto* current_object = object;
-    bool cycling_lock = false;
     stack<HeapObject*> check_objects;
-
+    auto* current_object = object;
     while (true) {
-        auto* current_object_type = (Type*) current_object->type_info;
-
-        //Possibly, leaking objects will occur on dynamic load.(?)
-        //But, it's safe.
-        //Improve it in the future.
-        bool is_cycling_type = current_object_type->is_cycling_type.load(std::memory_order_acquire);
-        if (is_cycling_type) {
-            if (!cycling_lock) {
-                //Temporarily stops the operation of Cycle Collector.
-                cycle_collector->collect_lock.read_lock();
-                cycling_lock = true;
-            }
-        }
-
-        size_t previous_count = current_object->count.fetch_sub(1, std::memory_order_release);
-        atomic_thread_fence(std::memory_order_acquire);
-        if (previous_count == 0) {
-            printf("0!!! : %llu [%p]\n", current_object->flag.load(std::memory_order_acquire), current_object);
-        }
-
-        if (is_cycling_type) {
-            //printf("CYCLE! : %llu\n", previous_count);
-            if (previous_count == 1) {
-                size_t previous_flag = current_object->flag.exchange(3, std::memory_order_acquire);
-                if (previous_flag == 3) {
-                    //Probably won't happen.
-                    printf("??\n");
-                } else if (previous_flag != 2) {
-                    cycle_collector->add_suspected_object(current_object);
-                }
-            }
-
-            if (previous_count != 1) {
-                size_t expected = 1;
-                if (current_object->flag.compare_exchange_strong(expected, 2)) {
-                    cycle_collector->add_suspected_object(current_object);
-                }
-
-                if (check_objects.empty()) {
-                    break;
-                }
-                current_object = check_objects.top();
-                check_objects.pop();
-                continue;
-            }
-        } else {
-            if (previous_count != 1) {
-                if (check_objects.empty()) {
-                    break;
-                }
-                current_object = check_objects.top();
-                check_objects.pop();
-                continue;
-            }
-        }
-
-        //Collect field objects.
-        size_t field_length = current_object->field_length;
         auto** fields = (HeapObject**) (current_object + 1);
+        size_t field_length = current_object->field_length;
+
+        object_lock(current_object);
         for (size_t i = 0; i < field_length; i++) {
-            auto* reference_fields = current_object_type->reference_fields;
-            if (get_flag(reference_fields, i)) {
-                auto* field_object = fields[i];
-                if (field_object != nullptr) {
+            auto* field_object = fields[i];
+            if (field_object != nullptr) {
+                if (field_object->color.load(std::memory_order_acquire) != object_color::black) {
+                    field_object->color.store(std::memory_order_release);
                     check_objects.push(field_object);
                 }
             }
         }
-
-        if (!is_cycling_type) {
-            //Release object.
-            current_object->flag.store(10, std::memory_order_release);
-        }
+        object_unlock(current_object);
 
         if (check_objects.empty()) {
             break;
@@ -130,8 +67,29 @@ inline void decrease_reference_count(CycleCollector* cycle_collector, HeapObject
         current_object = check_objects.top();
         check_objects.pop();
     }
+}
 
-    if (cycling_lock) {
-        cycle_collector->collect_lock.read_unlock();
+void possible_roots(CycleCollector* cycle_collector, HeapObject* object) {
+    scan_black(object);
+    object->color.store(object_color::purple, std::memory_order_release);
+    uint32_t expected = 0;
+    if (object->buffered.compare_exchange_strong(expected, 1, std::memory_order_seq_cst)) {
+        cycle_collector->add_suspected_object(object);
+    }
+}
+
+inline void increment_reference_count(HeapObject* object) {
+    atomic_thread_fence(std::memory_order_release);
+    object->count.fetch_add(1, std::memory_order_acquire);
+    scan_black(object);
+}
+
+inline void decrement_reference_count(CycleCollector* cycle_collector, HeapObject* object) {
+    size_t previous_count = object->count.fetch_sub(1, std::memory_order_release);
+    atomic_thread_fence(std::memory_order_acquire);
+    if (previous_count == 1) {
+
+    } else {
+        possible_roots(cycle_collector, object);
     }
 }

@@ -118,7 +118,7 @@ inline HeapObject* get_object_field_atomic(HeapObject* parent, size_t field_inde
 }
 
 inline void set_clone_object_field(CycleCollector* cycle_collector, HeapObject* parent, size_t field_index, HeapObject* field_object) {
-    increase_reference_count(field_object);
+    increment_reference_count(field_object);
     auto** field_ptr = ((HeapObject**) (parent + 1)) + field_index;
     HeapObject* old_field_object;
     while (true) {
@@ -132,7 +132,7 @@ inline void set_clone_object_field(CycleCollector* cycle_collector, HeapObject* 
         object_unlock(parent);
     }
     if (old_field_object != nullptr) {
-        decrease_reference_count(cycle_collector, old_field_object);
+        decrement_reference_count(cycle_collector, old_field_object);
     }
 }
 
@@ -143,7 +143,7 @@ inline HeapObject* get_clone_object_field(CycleCollector* cycle_collector, HeapO
         auto* field_object = *field_ptr;
         if (field_object != (HeapObject*) 1) {
             if (field_object != nullptr) {
-                increase_reference_count(field_object);
+                increment_reference_count(field_object);
             }
             object_unlock(parent);
             return field_object;
@@ -166,7 +166,7 @@ inline void set_move_object_field(CycleCollector* cycle_collector, HeapObject* p
         object_unlock(parent);
     }
     if (old_field_object != nullptr) {
-        decrease_reference_count(cycle_collector, old_field_object);
+        decrement_reference_count(cycle_collector, old_field_object);
     }
 }
 
@@ -265,7 +265,8 @@ atomic_bool task_flag(false);
 void* func1(void* args) {
     printf("START!\n");
     auto* thread = virtual_machine->create_thread(2048);
-    for (size_t s = 0; s < 10000000; s++) {
+    for (size_t s = 0; s < 5000000; s++) {
+        virtual_machine->get_cycle_collector()->collect_lock.read_lock();
         if (get_10() % 2 == 0) {
             auto* obj1 = (HeapObject*) thread->heap_allocator->malloc(object_type2, 3, &thread->allocator_search_start_index);
             auto* obj2 = (HeapObject*) thread->heap_allocator->malloc(object_type2, 3, &thread->allocator_search_start_index);
@@ -285,18 +286,19 @@ void* func1(void* args) {
             if (get_10() % 2 == 0) {
                 set_clone_object_field(virtual_machine->get_cycle_collector(), obj1, get_10() % 2, obj2);
                 set_move_object_field(virtual_machine->get_cycle_collector(), obj2, get_10() % 2, obj3);
-                decrease_reference_count(virtual_machine->get_cycle_collector(), obj1);
-                decrease_reference_count(virtual_machine->get_cycle_collector(), obj2);
-                //decrease_reference_count(virtual_machine->get_cycle_collector(), obj3);
+                decrement_reference_count(virtual_machine->get_cycle_collector(), obj1);
+                decrement_reference_count(virtual_machine->get_cycle_collector(), obj2);
+                //decrement_reference_count(virtual_machine->get_cycle_collector(), obj3);
             } else {
                 set_clone_object_field(virtual_machine->get_cycle_collector(), obj1, get_10() % 2, obj2);
                 set_clone_object_field(virtual_machine->get_cycle_collector(), obj2, get_10() % 2, obj3);
                 set_clone_object_field(virtual_machine->get_cycle_collector(), obj3, get_10() % 2, obj1);
-                decrease_reference_count(virtual_machine->get_cycle_collector(), obj1);
-                decrease_reference_count(virtual_machine->get_cycle_collector(), obj2);
-                decrease_reference_count(virtual_machine->get_cycle_collector(), obj3);
+                decrement_reference_count(virtual_machine->get_cycle_collector(), obj1);
+                decrement_reference_count(virtual_machine->get_cycle_collector(), obj2);
+                decrement_reference_count(virtual_machine->get_cycle_collector(), obj3);
             }
         }
+        virtual_machine->get_cycle_collector()->collect_lock.read_unlock();
     }
     printf("END!\n");
     return nullptr;
@@ -309,7 +311,7 @@ void* func2(void* args) {
         }
         //this_thread::sleep_for(std::chrono::milliseconds(5000));
         //printf("CONCURRENT COLLECT START!\n");
-        virtual_machine->get_cycle_collector()->collect_cycles();
+        //virtual_machine->get_cycle_collector()->collect_cycles();
         //printf("CONCURRENT COLLECT END!\n");
     }
     return nullptr;
@@ -362,6 +364,7 @@ int main()
 
     Timing gc_timing;
     gc_timing.start();
+    /*
     pthread_t pthread1;
     pthread_t pthread2;
     pthread_t pthread3;
@@ -377,104 +380,9 @@ int main()
     pthread_join(pthread2, nullptr);
     pthread_join(pthread3, nullptr);
 
-    task_flag.store(true, std::memory_order_release);
+    task_flag.store(true, std::memory_order_release);*/
 
-    pthread_join(pthread4, nullptr);
-
-    unordered_map<HeapObject*, size_t> count_cache_map;
-    unordered_map<HeapObject*, size_t> flag_cache_map;
-    for (auto& object : created_objects) {
-        count_cache_map[object] = object->count.load(std::memory_order_acquire);
-        flag_cache_map[object] = object->flag.load(std::memory_order_acquire);
-    }
-    //func1(nullptr);
-    decrease_reference_count(virtual_machine->get_cycle_collector(), module_object);
-    printf("COLLECT START!\n");
-    virtual_machine->get_cycle_collector()->collect_cycles();
-    printf("COLLECT END!\n");
-    //printf("START! %llu %llu\n", get_10_random(), get_10());
-
-    vector<HeapObject*> leaked_objects;
-
-    for (auto& object : created_objects) {
-        size_t object_flag = object->flag.load(std::memory_order_acquire);
-        if (object_flag != 10) {
-            bool is_white = false;
-            for (auto& white_object : virtual_machine->get_cycle_collector()->white_objects) {
-                if (white_object == object) {
-                    is_white = true;
-                    break;
-                }
-            }
-            bool is_dec = false;
-            for (auto& dec_object : virtual_machine->get_cycle_collector()->dec_objects) {
-                if (dec_object == object) {
-                    is_dec = true;
-                    break;
-                }
-            }
-            const char* white = is_white ? "true" : "false";
-            const char* dec = is_dec ? "true" : "false";
-
-            const char* is_new_field_obj = object->field_length == 3 ? "true" : "false";
-            printf("NOT DEAD! %s : %llu(%llu) : %llu(%llu) : %s : %s : [%p] ", is_new_field_obj, object->count.load(std::memory_order_acquire), count_cache_map[object], object_flag, flag_cache_map[object], white, dec, object);
-
-            auto** fields = (HeapObject**) (object + 1);
-            auto* object_type = (Type*) object->type_info;
-            size_t field_length = object->field_length;
-            for (size_t s = 0; s < field_length; s++) {
-                printf("%p ", fields[s]);
-            }
-            printf("\n");
-            leaked_objects.push_back(object);
-        } else {
-            //printf("DEAD!\n");
-        }
-    }
-
-    printf("--- LIVING OBJECTS INFO ---\n");
-    for (auto& object : created_objects) {
-        auto** fields = (HeapObject**) (object + 1);
-        auto* object_type = (Type*) object->type_info;
-        size_t field_length = object->field_length;
-        for (size_t s = 0; s < field_length; s++) {
-            auto* field = fields[s];
-            for (auto& leaked_object : leaked_objects) {
-                if (field == leaked_object) {
-                    goto break_field_loop;
-                }
-            }
-        }
-        continue;
-
-        break_field_loop:
-
-        size_t object_flag = object->flag.load(std::memory_order_acquire);
-
-        bool is_white = false;
-        for (auto& white_object : virtual_machine->get_cycle_collector()->white_objects) {
-            if (white_object == object) {
-                is_white = true;
-                break;
-            }
-        }
-        bool is_dec = false;
-        for (auto& dec_object : virtual_machine->get_cycle_collector()->dec_objects) {
-            if (dec_object == object) {
-                is_dec = true;
-                break;
-            }
-        }
-        const char* white = is_white ? "true" : "false";
-        const char* dec = is_dec ? "true" : "false";
-
-        printf("%llu(%llu) : %llu(%llu) : %s : %s : [%p] ", object->count.load(std::memory_order_acquire), count_cache_map[object], object_flag, flag_cache_map[object], white, dec, object);
-        for (size_t s = 0; s < field_length; s++) {
-            printf("%p ", fields[s]);
-        }
-        printf("\n");
-    }
-    printf("---------------------------\n");
+    ///
 
     /*
     auto* t1 = (HeapObject*) virtual_machine->get_heap_allocator()->malloc(object_type2, 2, &j);
@@ -489,7 +397,7 @@ int main()
     set_clone_object_field(virtual_machine->get_cycle_collector(), t2, 0, t1);
     set_clone_object_field(virtual_machine->get_cycle_collector(), t1, 1, t1);
     set_clone_object_field(virtual_machine->get_cycle_collector(), t2, 1, t2);
-    decrease_reference_count(virtual_machine->get_cycle_collector(), parent);
+    decrement_reference_count(virtual_machine->get_cycle_collector(), parent);
     for (auto& object : created_objects) {
         if (object->flag.load(std::memory_order_acquire) != 0) {
             printf("NOT DEAD! : %llu\n", object->count.load(std::memory_order_acquire));
