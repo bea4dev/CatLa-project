@@ -11,7 +11,8 @@ enum object_color : uint32_t {
     gray,
     orange,
     red,
-    purple
+    purple,
+    dead,
 };
 
 typedef struct {

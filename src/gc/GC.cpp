@@ -19,9 +19,15 @@ void CycleCollector::process_cycles() {
     this->suspected_object_list = new unordered_set<HeapObject*>;
     this->list_lock.unlock();
 
-    free_cycles();
+    free_cycles(roots);
     collect_cycles(roots);
     sigma_preparation();
+
+    this->list_lock.lock();
+    for (auto& root : *roots) {
+        this->suspected_object_list->insert(root);
+    }
+    this->list_lock.unlock();
 
     delete roots;
 
@@ -45,7 +51,7 @@ void CycleCollector::mark_roots(unordered_set<HeapObject*>* roots) {
             s->buffered.store(0, std::memory_order_release);
             if (s_rc == 0) {
                 //Free
-                s->color.store(object_color::non_color, std::memory_order_release);
+                s->color.store(object_color::dead, std::memory_order_release);
             }
         }
     }
@@ -66,7 +72,8 @@ void CycleCollector::mark_gray(HeapObject* s) {
                 if (field_object != nullptr) {
                     if (field_object->color.load(std::memory_order_acquire) != object_color::gray) {
                         field_object->color.store(object_color::gray, std::memory_order_release);
-                        field_object->crc = field_object->count.load(std::memory_order_acquire);
+                        field_object->crc = field_object->count.load(std::memory_order_acquire) - 1;
+                        check_objects.push(field_object);
                     } else if (field_object->crc > 0) {
                         (field_object->crc)--;
                     }
@@ -105,7 +112,7 @@ void CycleCollector::scan(HeapObject* s) {
                     if (field_object->color.load(std::memory_order_acquire) == object_color::gray && field_object->crc == 0) {
                         field_object->color.store(object_color::white, std::memory_order_release);
                         check_objects.push(field_object);
-                    } else {
+                    } else if (field_object->crc != 0) {
                         scan_black(field_object);
                     }
                 }
@@ -131,6 +138,7 @@ void CycleCollector::collect_roots(unordered_set<HeapObject*>* roots) {
         } else {
             s->buffered.store(0, std::memory_order_release);
         }
+        roots->erase(s);
     }
 }
 
@@ -166,12 +174,121 @@ void CycleCollector::collect_white(HeapObject* s, unordered_set<HeapObject*>& cu
     }
 }
 
+void CycleCollector::free_cycles(unordered_set<HeapObject*>* roots) {
+    if (this->cycle_buffer.empty()) {
+        return;
+    }
+    size_t last = this->cycle_buffer.size();
+    for (size_t i = last; i > 0; i--) {
+        auto c = this->cycle_buffer[i - 1];
+        if (delta_test(c) && sigma_test(c)) {
+            free_cycle(c);
+        } else {
+            refurbish(roots, c);
+        }
+    }
+    this->cycle_buffer.clear();
+}
+
+bool CycleCollector::delta_test(unordered_set<HeapObject*>& c) {
+    for (auto& n : c) {
+        if (n->color.load(std::memory_order_acquire) != object_color::orange) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool CycleCollector::sigma_test(unordered_set<HeapObject*>& c) {
+    size_t extern_rc = 0;
+    for (auto& n : c) {
+        extern_rc += n->crc;
+    }
+    return (extern_rc == 0);
+}
+
+void CycleCollector::free_cycle(unordered_set<HeapObject*>& c) {
+    for (auto& n : c) {
+        n->color.store(object_color::red, std::memory_order_release);
+    }
+    for (auto& n : c) {
+        auto** fields = (HeapObject**) (n + 1);
+        size_t field_length = n->field_length;
+        for (size_t i = 0; i < field_length; i++) {
+            auto* m = fields[i];
+            if (m != nullptr) {
+                cyclic_decrement(m);
+            }
+        }
+    }
+    for (auto& n : c) {
+        //Free
+        n->color.store(object_color::dead, std::memory_order_release);
+    }
+}
+
+void CycleCollector::cyclic_decrement(HeapObject* m) {
+    uint32_t m_color = m->color.load(std::memory_order_acquire);
+    if (m_color != object_color::red) {
+        if (m_color == object_color::orange) {
+            m->count.fetch_sub(1, std::memory_order_release);
+            (m->crc)--;
+        } else {
+            decrement_reference_count(this, m);
+        }
+    }
+}
+
+void CycleCollector::refurbish(unordered_set<HeapObject*>* roots, unordered_set<HeapObject*>& c) {
+    bool first = true;
+    for (auto& n : c) {
+        printf("NOT FREE! [%p]\n", n);
+        uint32_t n_color = n->color.load(std::memory_order_acquire);
+        if ((first && n_color == object_color::orange) || n_color == object_color::purple) {
+            n->color.store(object_color::purple, std::memory_order_release);
+            atomic_thread_fence(std::memory_order_acquire);
+            roots->insert(n);
+        } else {
+            n->color.store(object_color::black, std::memory_order_release);
+            n->buffered.store(0, std::memory_order_release);
+        }
+        first = false;
+    }
+}
+
+void CycleCollector::sigma_preparation() {
+    for (auto& c : this->cycle_buffer) {
+        for (auto& n : c) {
+            n->color.store(object_color::red, std::memory_order_release);
+            n->crc = n->count.load(std::memory_order_relaxed);
+        }
+        for (auto& n : c) {
+            auto** fields = (HeapObject**) (n + 1);
+            size_t field_length = n->field_length;
+            for (size_t i = 0; i < field_length; i++) {
+                auto* m = fields[i];
+                if (m != nullptr) {
+                    if (m->color.load(std::memory_order_acquire) == object_color::red && m->crc > 0) {
+                        (m->crc)--;
+                    }
+                }
+            }
+        }
+        for (auto& n : c) {
+            n->color.store(object_color::orange, std::memory_order_release);
+        }
+    }
+}
+
 void gc::possible_roots(CycleCollector* cycle_collector, HeapObject* object) {
     scan_black(object);
     object->color.store(object_color::purple, std::memory_order_release);
     uint32_t expected = 0;
     if (object->buffered.compare_exchange_strong(expected, 1, std::memory_order_seq_cst)) {
         cycle_collector->add_suspected_object(object);
+        cycle_collector->collect_lock.write_lock();
+        cycle_collector->suspected.insert(object);
+        cycle_collector->collect_lock.write_unlock();
     }
 }
 
@@ -185,8 +302,9 @@ void gc::release(CycleCollector* cycle_collector, HeapObject* object) {
         }
     }
     object->color.store(object_color::black, std::memory_order_release);
+    atomic_thread_fence(std::memory_order_acquire);
     if (!object->buffered.load(std::memory_order_acquire)) {
         //Free
-        object->color.store(object_color::non_color, std::memory_order_release);
+        object->color.store(object_color::dead, std::memory_order_release);
     }
 }

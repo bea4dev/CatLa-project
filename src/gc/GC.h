@@ -24,6 +24,7 @@ namespace gc {
 
     public:
         RWLock collect_lock;
+        unordered_set<HeapObject*> suspected;
 
     public:
         explicit CycleCollector(void* vm);
@@ -35,7 +36,7 @@ namespace gc {
         void process_cycles();
 
     private:
-        void free_cycles();
+        void free_cycles(unordered_set<HeapObject*>* roots);
         void collect_cycles(unordered_set<HeapObject*>* roots);
         void sigma_preparation();
         void mark_roots(unordered_set<HeapObject*>* roots);
@@ -44,6 +45,11 @@ namespace gc {
         void collect_roots(unordered_set<HeapObject*>* roots);
         void mark_gray(HeapObject* s);
         void collect_white(HeapObject* s, unordered_set<HeapObject*>& current_cycle);
+        bool delta_test(unordered_set<HeapObject*>& c);
+        bool sigma_test(unordered_set<HeapObject*>& c);
+        void free_cycle(unordered_set<HeapObject*>& c);
+        void refurbish(unordered_set<HeapObject*>* roots, unordered_set<HeapObject*>& c);
+        void cyclic_decrement(HeapObject* m);
 
     };
 }
@@ -66,7 +72,7 @@ inline void scan_black(HeapObject* object) {
             auto* field_object = fields[i];
             if (field_object != nullptr) {
                 if (field_object->color.load(std::memory_order_acquire) != object_color::black) {
-                    field_object->color.store(std::memory_order_release);
+                    field_object->color.store(object_color::black, std::memory_order_release);
                     check_objects.push(field_object);
                 }
             }

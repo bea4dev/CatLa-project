@@ -148,6 +148,7 @@ void* HeapChunk::malloc(void* type_info, size_t index, size_t block_size, size_t
 
             object->type_info = type_info;
             object->field_length = field_length;
+            object->buffered.store(0, std::memory_order_relaxed);
             object->color.store(object_color::black, std::memory_order_relaxed);
             object->count.store(1, std::memory_order_release);
 
