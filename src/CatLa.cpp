@@ -412,7 +412,9 @@ int main()
     for (auto& object : created_objects) {
         if (object->color.load(std::memory_order_acquire) != object_color::dead) {
             const char* suspected = virtual_machine->get_cycle_collector()->suspected.find(object) != virtual_machine->get_cycle_collector()->suspected.end() ? "true" : "false";
-            printf("NOT DEAD! : %llu : %d : %d : %llu : %s [%p] ", object->count.load(), object->color.load(), object->buffered.load(), object->crc, suspected, object);
+            const char* white = virtual_machine->get_cycle_collector()->white.find(object) != virtual_machine->get_cycle_collector()->white.end() ? "true" : "false";
+            const char* gray = virtual_machine->get_cycle_collector()->gray.find(object) != virtual_machine->get_cycle_collector()->gray.end() ? "true" : "false";
+            printf("NOT DEAD! : %llu : %d : %d : %llu : %s : %s : %s [%p] ", object->count.load(), object->color.load(), object->buffered.load(), object->crc, suspected, white, gray, object);
             auto** fields = (HeapObject**) (object + 1);
             size_t field_length = object->field_length;
             for (size_t s = 0; s < field_length; s++) {

@@ -21,10 +21,13 @@ namespace gc {
         unordered_set<HeapObject*>* suspected_object_list;
         pthread_mutex_t collector_lock;
         vector<unordered_set<HeapObject*>> cycle_buffer;
+        vector<HeapObject*> retry;
 
     public:
         RWLock collect_lock;
         unordered_set<HeapObject*> suspected;
+        unordered_set<HeapObject*> white;
+        unordered_set<HeapObject*> gray;
 
     public:
         explicit CycleCollector(void* vm);

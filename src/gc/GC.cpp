@@ -10,6 +10,12 @@ CycleCollector::CycleCollector(void* vm) {
 }
 
 void CycleCollector::process_cycles() {
+
+    for (auto& s : retry) {
+        possible_roots(this, s);
+    }
+    retry.clear();
+
     //Locking to limit Cycle Collector to one thread.
     pthread_mutex_lock(&collector_lock);
 
@@ -43,7 +49,7 @@ void CycleCollector::collect_cycles(unordered_set<HeapObject*>* roots) {
 void CycleCollector::mark_roots(unordered_set<HeapObject*>* roots) {
     for (auto& s : *roots) {
         uint32_t s_color = s->color.load(std::memory_order_acquire);
-        uint32_t s_rc = s->count.load(std::memory_order_acquire);
+        size_t s_rc = s->count.load(std::memory_order_acquire);
         if (s_color == object_color::purple && s_rc > 0) {
             mark_gray(s);
         } else {
@@ -52,6 +58,8 @@ void CycleCollector::mark_roots(unordered_set<HeapObject*>* roots) {
             if (s_rc == 0) {
                 //Free
                 s->color.store(object_color::dead, std::memory_order_release);
+            } else {
+                //retry.push_back(s);
             }
         }
     }
@@ -61,6 +69,7 @@ void CycleCollector::mark_gray(HeapObject* s) {
     if (s->color.load(std::memory_order_acquire) != object_color::gray) {
         s->color.store(object_color::gray, std::memory_order_release);
         s->crc = s->count.load(std::memory_order_acquire);
+        gray.insert(s);
 
         auto* current_object = s;
         stack<HeapObject*> check_objects;
@@ -74,6 +83,7 @@ void CycleCollector::mark_gray(HeapObject* s) {
                         field_object->color.store(object_color::gray, std::memory_order_release);
                         field_object->crc = field_object->count.load(std::memory_order_acquire) - 1;
                         check_objects.push(field_object);
+                        gray.insert(field_object);
                     } else if (field_object->crc > 0) {
                         (field_object->crc)--;
                     }
@@ -112,7 +122,9 @@ void CycleCollector::scan(HeapObject* s) {
                     if (field_object->color.load(std::memory_order_acquire) == object_color::gray && field_object->crc == 0) {
                         field_object->color.store(object_color::white, std::memory_order_release);
                         check_objects.push(field_object);
+                        white.insert(field_object);
                     } else if (field_object->crc != 0) {
+                        printf("NOT GRAY BLACK! : %d [%p]\n", field_object->color.load(), field_object);
                         scan_black(field_object);
                     }
                 }
@@ -125,6 +137,7 @@ void CycleCollector::scan(HeapObject* s) {
             check_objects.pop();
         }
     } else {
+        printf("NOT GRAY BLACK!! : %d : %llu [%p]\n", s->color.load(), s->crc, s);
         scan_black(s);
     }
 }
