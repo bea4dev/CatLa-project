@@ -15,7 +15,7 @@ using namespace modules;
 
 namespace gc {
     class CycleCollector {
-    private:
+    public:
         void* vm;
         SpinLock list_lock;
         unordered_set<HeapObject*>* suspected_object_list;
@@ -59,8 +59,10 @@ namespace gc {
 
 using namespace gc;
 
-inline void scan_black(HeapObject* object) {
+inline void scan_black(CycleCollector* cycle_collector, HeapObject* object) {
+    cycle_collector->collect_lock.write_lock();
     if (object->color.load(std::memory_order_acquire) == object_color::black) {
+        cycle_collector->collect_lock.write_unlock();
         return;
     }
     object->color.store(object_color::black, std::memory_order_release);
@@ -87,6 +89,7 @@ inline void scan_black(HeapObject* object) {
         current_object = check_objects.top();
         check_objects.pop();
     }
+    cycle_collector->collect_lock.write_unlock();
 }
 
 namespace gc {
@@ -94,10 +97,10 @@ namespace gc {
     void release(CycleCollector* cycle_collector, HeapObject* object);
 }
 
-inline void increment_reference_count(HeapObject* object) {
+inline void increment_reference_count(CycleCollector* cycle_collector, HeapObject* object) {
     atomic_thread_fence(std::memory_order_release);
     object->count.fetch_add(1, std::memory_order_acquire);
-    scan_black(object);
+    scan_black(cycle_collector, object);
 }
 
 inline void decrement_reference_count(CycleCollector* cycle_collector, HeapObject* object) {

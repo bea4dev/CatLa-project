@@ -118,7 +118,7 @@ inline HeapObject* get_object_field_atomic(HeapObject* parent, size_t field_inde
 }
 
 inline void set_clone_object_field(CycleCollector* cycle_collector, HeapObject* parent, size_t field_index, HeapObject* field_object) {
-    increment_reference_count(field_object);
+    increment_reference_count(cycle_collector, field_object);
     auto** field_ptr = ((HeapObject**) (parent + 1)) + field_index;
     HeapObject* old_field_object;
     while (true) {
@@ -143,7 +143,7 @@ inline HeapObject* get_clone_object_field(CycleCollector* cycle_collector, HeapO
         auto* field_object = *field_ptr;
         if (field_object != (HeapObject*) 1) {
             if (field_object != nullptr) {
-                increment_reference_count(field_object);
+                increment_reference_count(cycle_collector, field_object);
             }
             object_unlock(parent);
             return field_object;
@@ -428,6 +428,7 @@ int main()
     }
     gc_timing.end();
     printf("GC : %llu[ms]\n", gc_timing.get_sum_time());
+    printf("SUSPECTED : %llu\n", virtual_machine->get_cycle_collector()->suspected_object_list->size());
 
     Timing timing1;
     Timing timing2;
