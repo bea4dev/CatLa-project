@@ -45,7 +45,7 @@ void CycleCollector::mark_roots(unordered_set<HeapObject*>* roots) {
     for (auto& s : *roots) {
         uint32_t s_color = s->color.load(std::memory_order_acquire);
         size_t s_rc = s->count.load(std::memory_order_acquire);
-        if (s_color == object_color::purple && s_rc > 0) {
+        if ((s_color == object_color::purple || s_color == object_color::black) && s_rc > 0) {
             mark_gray(s);
         } else {
             remove.insert(s);
@@ -67,7 +67,7 @@ void CycleCollector::mark_gray(HeapObject* s) {
     if (s->color.load(std::memory_order_acquire) != object_color::gray) {
         s->color.store(object_color::gray, std::memory_order_release);
         s->crc = s->count.load(std::memory_order_acquire);
-        gray.insert(s);
+        //gray.insert(s);
 
         auto* current_object = s;
         stack<HeapObject*> check_objects;
@@ -81,7 +81,7 @@ void CycleCollector::mark_gray(HeapObject* s) {
                         field_object->color.store(object_color::gray, std::memory_order_release);
                         field_object->crc = field_object->count.load(std::memory_order_acquire) - 1;
                         check_objects.push(field_object);
-                        gray.insert(field_object);
+                        //gray.insert(field_object);
                     } else if (field_object->crc > 0) {
                         (field_object->crc)--;
                     }
@@ -120,7 +120,7 @@ void CycleCollector::scan(HeapObject* s) {
                     if (field_object->color.load(std::memory_order_acquire) == object_color::gray && field_object->crc == 0) {
                         field_object->color.store(object_color::white, std::memory_order_release);
                         check_objects.push(field_object);
-                        white.insert(field_object);
+                        //white.insert(field_object);
                     } else if (field_object->crc != 0) {
                         scan_black(this, field_object);
                     }
@@ -294,9 +294,10 @@ void gc::possible_roots(CycleCollector* cycle_collector, HeapObject* object) {
     uint32_t expected = 0;
     if (object->buffered.compare_exchange_strong(expected, 1, std::memory_order_seq_cst)) {
         cycle_collector->add_suspected_object(object);
+        /*
         cycle_collector->collect_lock.write_lock();
         cycle_collector->suspected.insert(object);
-        cycle_collector->collect_lock.write_unlock();
+        cycle_collector->collect_lock.write_unlock();*/
     }
 }
 

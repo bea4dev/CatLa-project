@@ -361,7 +361,6 @@ int main()
     set_move_object_field_uncheck(module_object, 9, create_object());
 
     Timing gc_timing;
-    gc_timing.start();
     pthread_t pthread1;
     pthread_t pthread2;
     pthread_t pthread3;
@@ -406,9 +405,13 @@ int main()
     decrement_reference_count(virtual_machine->get_cycle_collector(), module_object);
     printf("DECREMENT OK!\n");
 
+    gc_timing.start();
     virtual_machine->get_cycle_collector()->process_cycles();
     virtual_machine->get_cycle_collector()->process_cycles();
+    gc_timing.end();
+
     printf("COLLECT OK!\n");
+    printf("-------- LIVING OBJECTS INFO --------\n");
     for (auto& object : created_objects) {
         if (object->color.load(std::memory_order_acquire) != object_color::dead) {
             const char* suspected = virtual_machine->get_cycle_collector()->suspected.find(object) != virtual_machine->get_cycle_collector()->suspected.end() ? "true" : "false";
@@ -426,9 +429,9 @@ int main()
             //printf("DEAD!\n");
         }
     }
-    gc_timing.end();
+    printf("-------------------------------------\n");
     printf("GC : %llu[ms]\n", gc_timing.get_sum_time());
-    printf("SUSPECTED : %llu\n", virtual_machine->get_cycle_collector()->suspected_object_list->size());
+    //printf("SUSPECTED : %llu\n", virtual_machine->get_cycle_collector()->suspected_object_list->size());
 
     Timing timing1;
     Timing timing2;

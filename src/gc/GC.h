@@ -21,7 +21,7 @@ namespace gc {
         unordered_set<HeapObject*>* suspected_object_list;
         pthread_mutex_t collector_lock;
         vector<unordered_set<HeapObject*>> cycle_buffer;
-        vector<HeapObject*> retry;
+        unordered_set<HeapObject*> retry;
 
     public:
         RWLock collect_lock;
@@ -60,11 +60,10 @@ namespace gc {
 using namespace gc;
 
 inline void scan_black(CycleCollector* cycle_collector, HeapObject* object) {
-    cycle_collector->collect_lock.write_lock();
     if (object->color.load(std::memory_order_acquire) == object_color::black) {
-        cycle_collector->collect_lock.write_unlock();
         return;
     }
+    //cycle_collector->collect_lock.write_lock();
     object->color.store(object_color::black, std::memory_order_release);
 
     stack<HeapObject*> check_objects;
@@ -76,7 +75,8 @@ inline void scan_black(CycleCollector* cycle_collector, HeapObject* object) {
         for (size_t i = 0; i < field_length; i++) {
             auto* field_object = fields[i];
             if (field_object != nullptr) {
-                if (field_object->color.load(std::memory_order_acquire) != object_color::black) {
+                uint32_t field_object_color = field_object->color.load(std::memory_order_acquire);
+                if (field_object_color != object_color::black) {
                     field_object->color.store(object_color::black, std::memory_order_release);
                     check_objects.push(field_object);
                 }
@@ -89,7 +89,7 @@ inline void scan_black(CycleCollector* cycle_collector, HeapObject* object) {
         current_object = check_objects.top();
         check_objects.pop();
     }
-    cycle_collector->collect_lock.write_unlock();
+    //cycle_collector->collect_lock.write_unlock();
 }
 
 namespace gc {
