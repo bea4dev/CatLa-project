@@ -146,6 +146,10 @@ void* HeapChunk::malloc(void* type_info, size_t index, size_t block_size, size_t
             }
             block_info->current_location = current_entry_index;
 
+            auto** fields = (HeapObject**) (object + 1);
+            for (size_t j = 0; j < field_length; j++) {
+                fields[j] = nullptr;
+            }
             object->type_info = type_info;
             object->field_length = field_length;
             object->buffered.store(0, std::memory_order_relaxed);

@@ -413,7 +413,7 @@ int main()
     printf("COLLECT OK!\n");
     printf("-------- LIVING OBJECTS INFO --------\n");
     for (auto& object : created_objects) {
-        if (object->color.load(std::memory_order_acquire) != object_color::dead) {
+        if (object->color.load(std::memory_order_acquire) != object_color::non_color) {
             const char* suspected = virtual_machine->get_cycle_collector()->suspected.find(object) != virtual_machine->get_cycle_collector()->suspected.end() ? "true" : "false";
             const char* white = virtual_machine->get_cycle_collector()->white.find(object) != virtual_machine->get_cycle_collector()->white.end() ? "true" : "false";
             const char* gray = virtual_machine->get_cycle_collector()->gray.find(object) != virtual_machine->get_cycle_collector()->gray.end() ? "true" : "false";

@@ -52,7 +52,7 @@ void CycleCollector::mark_roots(unordered_set<HeapObject*>* roots) {
             s->buffered.store(0, std::memory_order_release);
             if (s_rc == 0) {
                 //Free
-                s->color.store(object_color::dead, std::memory_order_release);
+                s->color.store(object_color::non_color, std::memory_order_release);
             } else {
                 //retry.push_back(s);
             }
@@ -232,7 +232,7 @@ void CycleCollector::free_cycle(unordered_set<HeapObject*>& c) {
     }
     for (auto& n : c) {
         //Free
-        n->color.store(object_color::dead, std::memory_order_release);
+        n->color.store(object_color::non_color, std::memory_order_release);
     }
 }
 
@@ -314,6 +314,6 @@ void gc::release(CycleCollector* cycle_collector, HeapObject* object) {
     atomic_thread_fence(std::memory_order_acquire);
     if (!object->buffered.load(std::memory_order_acquire)) {
         //Free
-        object->color.store(object_color::dead, std::memory_order_release);
+        object->color.store(object_color::non_color, std::memory_order_release);
     }
 }
