@@ -309,7 +309,7 @@ void* func2(void* args) {
         }
         //this_thread::sleep_for(std::chrono::milliseconds(5000));
         //printf("CONCURRENT COLLECT START!\n");
-        //virtual_machine->get_cycle_collector()->process_cycles();
+        //virtual_machine->get_cycle_collector()->gc_collect();
         //printf("CONCURRENT COLLECT END!\n");
     }
     return nullptr;
@@ -406,18 +406,18 @@ int main()
     printf("DECREMENT OK!\n");
 
     gc_timing.start();
-    virtual_machine->get_cycle_collector()->process_cycles();
-    virtual_machine->get_cycle_collector()->process_cycles();
+    virtual_machine->get_cycle_collector()->gc_collect();
+    virtual_machine->get_cycle_collector()->gc_collect();
     gc_timing.end();
 
     printf("COLLECT OK!\n");
     printf("-------- LIVING OBJECTS INFO --------\n");
     for (auto& object : created_objects) {
-        if (object->color.load(std::memory_order_acquire) != object_color::non_color) {
+        if (object->state.load(std::memory_order_acquire) != object_state::dead) {
             const char* suspected = virtual_machine->get_cycle_collector()->suspected.find(object) != virtual_machine->get_cycle_collector()->suspected.end() ? "true" : "false";
             const char* white = virtual_machine->get_cycle_collector()->white.find(object) != virtual_machine->get_cycle_collector()->white.end() ? "true" : "false";
             const char* gray = virtual_machine->get_cycle_collector()->gray.find(object) != virtual_machine->get_cycle_collector()->gray.end() ? "true" : "false";
-            printf("NOT DEAD! : %llu : %d : %d : %llu : %s : %s : %s [%p] ", object->count.load(), object->color.load(), object->buffered.load(), object->crc, suspected, white, gray, object);
+            printf("NOT DEAD! : %llu : %d : %d : %llu : %s : %s : %s [%p] ", object->count.load(), object->state.load(), object->async_release.load(), object->crc, suspected, white, gray, object);
             auto** fields = (HeapObject**) (object + 1);
             size_t field_length = object->field_length;
             for (size_t s = 0; s < field_length; s++) {

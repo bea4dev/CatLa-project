@@ -36,79 +36,48 @@ namespace gc {
             suspected_object_list->insert(object);
             list_lock.unlock();
         }
-        void process_cycles();
+        void gc_collect();
 
     private:
-        void free_cycles(unordered_set<HeapObject*>* roots);
-        void collect_cycles(unordered_set<HeapObject*>* roots);
-        void sigma_preparation();
-        void mark_roots(unordered_set<HeapObject*>* roots);
-        void scan_roots(unordered_set<HeapObject*>* roots);
-        void scan(HeapObject* s);
-        void collect_roots(unordered_set<HeapObject*>* roots);
-        void mark_gray(HeapObject* s);
-        void collect_white(HeapObject* s, unordered_set<HeapObject*>& current_cycle);
-        bool delta_test(unordered_set<HeapObject*>& c);
-        bool sigma_test(unordered_set<HeapObject*>& c);
-        void free_cycle(unordered_set<HeapObject*>& c);
-        void refurbish(unordered_set<HeapObject*>* roots, unordered_set<HeapObject*>& c);
-        void cyclic_decrement(HeapObject* m);
+        void collect_cycles();
 
     };
 }
 
 using namespace gc;
 
-inline void scan_black(CycleCollector* cycle_collector, HeapObject* object) {
-    if (object->color.load(std::memory_order_acquire) == object_color::black) {
-        return;
-    }
-    //cycle_collector->collect_lock.write_lock();
-    object->color.store(object_color::black, std::memory_order_release);
-
-    stack<HeapObject*> check_objects;
-    auto* current_object = object;
-    while (true) {
-        auto** fields = (HeapObject**) (current_object + 1);
-        size_t field_length = current_object->field_length;
-
-        for (size_t i = 0; i < field_length; i++) {
-            auto* field_object = fields[i];
-            if (field_object != nullptr) {
-                uint32_t field_object_color = field_object->color.load(std::memory_order_acquire);
-                if (field_object_color != object_color::black) {
-                    field_object->color.store(object_color::black, std::memory_order_release);
-                    check_objects.push(field_object);
-                }
-            }
-        }
-
-        if (check_objects.empty()) {
-            break;
-        }
-        current_object = check_objects.top();
-        check_objects.pop();
-    }
-    //cycle_collector->collect_lock.write_unlock();
-}
-
-namespace gc {
-    void possible_roots(CycleCollector* cycle_collector, HeapObject* object);
-    void release(CycleCollector* cycle_collector, HeapObject* object);
-}
-
 inline void increment_reference_count(CycleCollector* cycle_collector, HeapObject* object) {
-    atomic_thread_fence(std::memory_order_release);
-    object->count.fetch_add(1, std::memory_order_acquire);
-    scan_black(cycle_collector, object);
+    size_t previous = object->count.fetch_add(1, std::memory_order_relaxed);
+    if (previous == 1 && object->is_cyclic_type) {
+        bool expected = false;
+        if (object->async_release.compare_exchange_strong(expected, true, std::memory_order_relaxed)) {
+            cycle_collector->add_suspected_object(object);
+        }
+    }
 }
 
 inline void decrement_reference_count(CycleCollector* cycle_collector, HeapObject* object) {
-    size_t previous_count = object->count.fetch_sub(1, std::memory_order_release);
+    size_t previous = object->count.fetch_sub(1, std::memory_order_release);
     atomic_thread_fence(std::memory_order_acquire);
-    if (previous_count == 1) {
-        release(cycle_collector, object);
-    } else {
-        possible_roots(cycle_collector, object);
+
+    if (previous == 1) {
+        stack<HeapObject*> check_object;
+        vector<HeapObject*> release_objects;
+        auto* current_object = object;
+        bool async_release;
+        while (true) {
+            auto** fields = (HeapObject**) (object + 1);
+            size_t field_length = object->field_length;
+            for (size_t i = 0; i < field_length; i++) {
+                auto* field_object = fields[i];
+                if (field_object != nullptr) {
+                    size_t field_object_previous_rc = field_object->count.fetch_sub(1, std::memory_order_release);
+                    atomic_thread_fence(std::memory_order_acquire);
+                    if (field_object_previous_rc == 1) {
+
+                    }
+                }
+            }
+        }
     }
 }

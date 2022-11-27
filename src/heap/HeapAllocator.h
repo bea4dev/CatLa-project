@@ -4,37 +4,30 @@
 
 using namespace concurrent;
 
-enum object_color : uint32_t {
-    non_color,
-    black,
-    white,
-    gray,
-    orange,
-    red,
-    purple,
+enum object_state : uint8_t {
     dead,
+    waiting_for_gc,
 };
 
 typedef struct {
     atomic_size_t count;
     size_t crc;
-    atomic_uint32_t color;
-    atomic_uint32_t buffered;
-    size_t lock_flag;
+    atomic_uint8_t state;
+    atomic_bool async_release;
+    bool is_cyclic_type;
+    atomic_flag lock_flag;
     size_t field_length;
     void* type_info;
 } HeapObject;
 
 inline void object_lock(HeapObject* object) {
-    auto* flag = (atomic_flag*) &object->lock_flag;
-    while (flag->test_and_set(std::memory_order_acquire)) {
+    while (object->lock_flag.test_and_set(std::memory_order_acquire)) {
         //wait
     }
 }
 
 inline void object_unlock(HeapObject* object) {
-    auto* flag = (atomic_flag*) &object->lock_flag;
-    flag->clear(std::memory_order_release);
+    object->lock_flag.clear(std::memory_order_release);
 }
 
 inline uint64_t get_object_field(HeapObject* object, size_t field_index) {
