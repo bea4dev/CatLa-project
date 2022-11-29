@@ -56,9 +56,14 @@ inline void increment_reference_count(CycleCollector* cycle_collector, HeapObjec
 
 
 inline void decrement_reference_count_waiting_gc_object(HeapObject* object) {
+    vector<HeapObject*> release_objects;
     stack<HeapObject*> check_objects;
     auto* current_object = object;
     while (true) {
+        release_objects.push_back(object);
+        object->state.store(object_state::process_gc, std::memory_order_release);
+        atomic_thread_fence(std::memory_order_acquire);
+
         auto** fields = (HeapObject**) (current_object + 1);
         size_t field_length = current_object->field_length;
         for (size_t i = 0; i < field_length; i++) {
@@ -67,8 +72,9 @@ inline void decrement_reference_count_waiting_gc_object(HeapObject* object) {
                 size_t field_object_previous_rc = field_object->count.fetch_sub(1, std::memory_order_release);
                 atomic_thread_fence(std::memory_order_acquire);
                 if (field_object_previous_rc == 1) {
-                    field_object->state.store(object_state::waiting_for_gc, std::memory_order_release);
                     check_objects.push(field_object);
+                } else {
+                    fields[i] = nullptr;
                 }
             }
         }
@@ -79,6 +85,10 @@ inline void decrement_reference_count_waiting_gc_object(HeapObject* object) {
         current_object = check_objects.top();
         check_objects.pop();
     }
+
+    for (auto& obj : release_objects) {
+        obj->state.store(object_state::waiting_for_gc, std::memory_order_release);
+    }
 }
 
 inline void decrement_reference_count(CycleCollector* cycle_collector, HeapObject* object) {
@@ -86,7 +96,6 @@ inline void decrement_reference_count(CycleCollector* cycle_collector, HeapObjec
     atomic_thread_fence(std::memory_order_acquire);
     if (previous == 1) {
         if (object->is_cyclic_type && object->async_release.load(std::memory_order_acquire)) {
-            object->state.store(object_state::waiting_for_gc, std::memory_order_release);
             decrement_reference_count_waiting_gc_object(object);
             return;
         }
@@ -106,7 +115,6 @@ inline void decrement_reference_count(CycleCollector* cycle_collector, HeapObjec
                 atomic_thread_fence(std::memory_order_acquire);
                 if (field_object_previous_rc == 1) {
                     if (field_object->is_cyclic_type && field_object->async_release.load(std::memory_order_acquire)) {
-                        field_object->state.store(object_state::waiting_for_gc, std::memory_order_release);
                         decrement_reference_count_waiting_gc_object(field_object);
                         continue;
                     } else {

@@ -7,6 +7,7 @@ using namespace concurrent;
 enum object_state : uint8_t {
     dead,
     live,
+    process_gc,
     waiting_for_gc,
 };
 
