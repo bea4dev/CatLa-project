@@ -118,8 +118,8 @@ void* HeapChunk::malloc(void* type_info, size_t index, size_t block_size, size_t
             }
 
             if (is_thread_safe) {
-                uint32_t expected = 0;
-                if (!object->state.compare_exchange_strong(expected, 1, std::memory_order_acquire)) {
+                uint8_t expected = object_state::dead;
+                if (!object->state.compare_exchange_strong(expected, object_state::live, std::memory_order_acquire)) {
                     current_entry += block_size;
                     current_entry_index++;
                     if (current_entry_index == cells_size_) {
@@ -152,8 +152,8 @@ void* HeapChunk::malloc(void* type_info, size_t index, size_t block_size, size_t
             }
             object->type_info = type_info;
             object->field_length = field_length;
-            object->async_release.store(0, std::memory_order_relaxed);
-            object->state.store(object_color::black, std::memory_order_relaxed);
+            object->async_release.store(false, std::memory_order_relaxed);
+            object->state.store(object_state::live, std::memory_order_relaxed);
             object->count.store(1, std::memory_order_release);
 
             return object;
