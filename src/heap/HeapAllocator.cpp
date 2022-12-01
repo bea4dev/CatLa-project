@@ -154,6 +154,7 @@ void* HeapChunk::malloc(void* type_info, size_t index, size_t block_size, size_t
             object->field_length = field_length;
             object->async_release.store(false, std::memory_order_relaxed);
             object->state.store(object_state::live, std::memory_order_relaxed);
+            object->is_cyclic_type = ((Type*) type_info)->is_cycling_type.load(std::memory_order_relaxed);
             object->count.store(1, std::memory_order_release);
 
             return object;

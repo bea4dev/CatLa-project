@@ -201,13 +201,13 @@ size_t c = 0;
 Type* object_type1;
 Type* object_type2;
 Type* module_type;
-vector<HeapObject*> created_objects;
+unordered_set<HeapObject*> created_objects;
 
 HeapObject* create(int count) {
     if (count > 20) {
         c++;
         auto* obj = (HeapObject*) virtual_machine->get_heap_allocator()->malloc(object_type1, 2, &j);
-        created_objects.push_back(obj);
+        created_objects.insert(obj);
         return obj;
         //return (HeapObject*) calloc(1, 40 + 16);
         //return (HeapObject*) malloc(40 + 16);
@@ -219,8 +219,8 @@ HeapObject* create(int count) {
     //auto* parent = (size_t**) malloc(40 + 16);
     auto* child1 = create(count);
     auto* child2 = create(count);
-    created_objects.push_back(child1);
-    created_objects.push_back(child2);
+    created_objects.insert(child1);
+    created_objects.insert(child2);
 
     set_move_object_field_uncheck(parent, 0, child1);
     set_move_object_field_uncheck(parent, 1, child2);
@@ -229,12 +229,6 @@ HeapObject* create(int count) {
 }
 
 using namespace benchmark;
-
-HeapObject* heap_object;
-size_t a = 0;
-int b = 0;
-
-RWLock rw_lock;
 
 HeapObject* module_object;
 
@@ -256,7 +250,7 @@ inline size_t get_10() {
 
 inline HeapObject* create_object() {
     auto* object = (HeapObject*) virtual_machine->get_heap_allocator()->malloc(object_type2, 2, &j);
-    created_objects.push_back(object);
+    created_objects.insert(object);
     return object;
 }
 
@@ -265,15 +259,15 @@ atomic_bool task_flag(false);
 void* func1(void* args) {
     printf("START!\n");
     auto* thread = virtual_machine->create_thread(2048);
-    for (size_t s = 0; s < 1000000; s++) {
+    for (size_t s = 0; s < 100000000; s++) {
         if (get_10() % 2 == 0) {
             auto* obj1 = (HeapObject*) thread->heap_allocator->malloc(object_type2, 3, &thread->allocator_search_start_index);
             auto* obj2 = (HeapObject*) thread->heap_allocator->malloc(object_type2, 3, &thread->allocator_search_start_index);
             auto* obj3 = (HeapObject*) thread->heap_allocator->malloc(object_type2, 3, &thread->allocator_search_start_index);
             object_lock(module_object);
-            created_objects.push_back(obj1);
-            created_objects.push_back(obj2);
-            created_objects.push_back(obj3);
+            created_objects.insert(obj1);
+            created_objects.insert(obj2);
+            created_objects.insert(obj3);
             object_unlock(module_object);
             set_move_object_field(virtual_machine->get_cycle_collector(), module_object, get_10(), obj1);
             set_move_object_field(virtual_machine->get_cycle_collector(), module_object, get_10(), obj2);
@@ -329,7 +323,6 @@ int main()
     create_random_map();
 
     size_t in = 0;
-    heap_object = (HeapObject*) virtual_machine->get_heap_allocator()->malloc(nullptr, 2, &in);
 
     object_type1 = new Type(nullptr, "TestClass", 0, {}, {});
     object_type2 = new Type(nullptr, "TestClass", 0, {}, {});
@@ -408,6 +401,9 @@ int main()
     gc_timing.start();
     virtual_machine->get_cycle_collector()->gc_collect();
     virtual_machine->get_cycle_collector()->gc_collect();
+    virtual_machine->get_cycle_collector()->gc_collect();
+    virtual_machine->get_cycle_collector()->gc_collect();
+    virtual_machine->get_cycle_collector()->gc_collect();
     gc_timing.end();
 
     printf("COLLECT OK!\n");
@@ -431,7 +427,7 @@ int main()
     }
     printf("-------------------------------------\n");
     printf("GC : %llu[ms]\n", gc_timing.get_sum_time());
-    //printf("SUSPECTED : %llu\n", virtual_machine->get_cycle_collector()->suspected_object_list->size());
+    printf("SUSPECTED : %llu\n", virtual_machine->get_cycle_collector()->suspected_object_list->size());
 
     Timing timing1;
     Timing timing2;
@@ -466,8 +462,8 @@ int main()
     //auto* object2 = (HeapObject*) allocator->malloc(nullptr, 0, &at);
 
     for (size_t v = 0; v < 1000000; v++) {
-        auto* object1 = (HeapObject*) allocator->malloc(nullptr, 0, &at);
-        auto* object2 = (HeapObject*) allocator->malloc(nullptr, 0, &at);
+        auto* object1 = (HeapObject*) allocator->malloc(object_type1, 0, &at);
+        auto* object2 = (HeapObject*) allocator->malloc(object_type1, 0, &at);
         //object1->count.fetch_add(1, std::memory_order_relaxed);
         //object2->count.fetch_add(1, std::memory_order_relaxed);
         set_object_field_atomic(list1, v, object1);

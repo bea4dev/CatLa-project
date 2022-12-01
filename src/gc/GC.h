@@ -56,44 +56,62 @@ inline void increment_reference_count(CycleCollector* cycle_collector, HeapObjec
 
 
 inline void decrement_reference_count_waiting_gc_object(HeapObject* object) {
-    vector<HeapObject*> release_objects;
-    stack<HeapObject*> check_objects;
-    auto* current_object = object;
+    auto* current_root = object;
+    stack<HeapObject*> check_roots;
     while (true) {
-        release_objects.push_back(object);
-        object->state.store(object_state::process_gc, std::memory_order_release);
-        atomic_thread_fence(std::memory_order_acquire);
+        vector<HeapObject*> release_objects;
+        stack<HeapObject*> check_objects;
+        auto* current_object = current_root;
+        while (true) {
+            release_objects.push_back(current_object);
+            current_object->state.store(object_state::process_gc, std::memory_order_release);
+            atomic_thread_fence(std::memory_order_acquire);
 
-        auto** fields = (HeapObject**) (current_object + 1);
-        size_t field_length = current_object->field_length;
-        for (size_t i = 0; i < field_length; i++) {
-            auto* field_object = fields[i];
-            if (field_object != nullptr) {
-                size_t field_object_previous_rc = field_object->count.fetch_sub(1, std::memory_order_release);
-                atomic_thread_fence(std::memory_order_acquire);
-                if (field_object_previous_rc == 1) {
-                    check_objects.push(field_object);
-                } else {
-                    fields[i] = nullptr;
+            auto** fields = (HeapObject**) (current_object + 1);
+            size_t field_length = current_object->field_length;
+            for (size_t i = 0; i < field_length; i++) {
+                auto* field_object = fields[i];
+                if (field_object != nullptr) {
+                    size_t field_object_previous_rc = field_object->count.fetch_sub(1, std::memory_order_release);
+                    atomic_thread_fence(std::memory_order_acquire);
+                    if (field_object_previous_rc == 1) {
+                        if (field_object->is_cyclic_type && field_object->async_release.load(std::memory_order_acquire)) {
+                            fields[i] = nullptr;
+                            check_roots.push(field_object);
+                        } else {
+                            check_objects.push(field_object);
+                        }
+                    } else {
+                        fields[i] = nullptr;
+                    }
                 }
             }
+
+            if (check_objects.empty()) {
+                break;
+            }
+            current_object = check_objects.top();
+            check_objects.pop();
         }
 
-        if (check_objects.empty()) {
+        for (auto& obj : release_objects) {
+            obj->state.store(object_state::waiting_for_gc, std::memory_order_release);
+        }
+
+        if (check_roots.empty()) {
             break;
         }
-        current_object = check_objects.top();
-        check_objects.pop();
-    }
-
-    for (auto& obj : release_objects) {
-        obj->state.store(object_state::waiting_for_gc, std::memory_order_release);
+        current_root = check_roots.top();
+        check_roots.pop();
     }
 }
 
 inline void decrement_reference_count(CycleCollector* cycle_collector, HeapObject* object) {
     size_t previous = object->count.fetch_sub(1, std::memory_order_release);
     atomic_thread_fence(std::memory_order_acquire);
+    if (previous == 0) {
+        printf("ZERO! [%p]\n", object);
+    }
     if (previous == 1) {
         if (object->is_cyclic_type && object->async_release.load(std::memory_order_acquire)) {
             decrement_reference_count_waiting_gc_object(object);
