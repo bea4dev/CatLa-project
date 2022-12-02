@@ -37,9 +37,9 @@ void CycleCollector::gc_collect() {
         bool is_cyclic_root = false;
 
         //Mark red (Lock phase)
+        color_map[root] = object_color::red;
         while (true) {
             //Lock
-            color_map[current_object] = object_color::red;
             object_lock(current_object);
             cycle_objects.push_back(current_object);
 
@@ -50,9 +50,13 @@ void CycleCollector::gc_collect() {
                 auto* field_object = fields[i];
                 if (field_object != nullptr) {
                     if (color_map.find(field_object) == color_map.end()) {
+                        color_map[field_object] = object_color::red;
                         check_objects.push(field_object);
                     } else {
                         if (field_object == root) {
+                            if (root->count.load(std::memory_order_acquire) == 0) {
+                                printf("3 : %d %d %d?????\n", field_object == root, field_object->state.load(), field_object->async_release.load());
+                            }
                             is_cyclic_root = true;
                         }
                     }
@@ -71,10 +75,9 @@ void CycleCollector::gc_collect() {
         if (is_cyclic_root) {
             //Mark gray
             count_map[root] = root->count.load(std::memory_order_acquire);
+            color_map[root] = object_color::gray;
             current_object = root;
             while (true) {
-                color_map[current_object] = object_color::gray;
-
                 //Get field objects
                 auto** fields = (HeapObject**) (current_object + 1);
                 size_t field_length = current_object->field_length;
@@ -86,10 +89,14 @@ void CycleCollector::gc_collect() {
                             if (previous_rc > 0) {
                                 count_map[field_object] = previous_rc - 1;
                             } else {
-                                printf("1 : ?????\n");
+                                printf("1 : %d %d %d?????\n", field_object == root, field_object->state.load(), field_object->async_release.load());
                             }
                         } else {
+                            color_map[field_object] = object_color::gray;
                             check_objects.push(field_object);
+                            if (field_object->count.load(std::memory_order_acquire) == 0) {
+                                printf("2 [%p] : %d %d %d?????\n", field_object, field_object == root, field_object->state.load(), field_object->async_release.load());
+                            }
                             count_map[field_object] = field_object->count.load(std::memory_order_acquire) - 1;
                         }
                     }
@@ -122,11 +129,16 @@ void CycleCollector::gc_collect() {
                         uint8_t field_object_color = color_map[field_object];
                         size_t field_object_rc = count_map[field_object];
                         if (current_object_color == object_color::white) {
-                            if (field_object_rc != 0) {
+                            if (field_object_rc == 0) {
+                                if (field_object_color == object_color::gray) {
+                                    color_map[field_object] = object_color::white;
+                                    check_objects.push(field_object);
+                                }
+                            } else {
+                                if (field_object_color != object_color::black) {
+                                    check_objects.push(field_object);
+                                }
                                 color_map[field_object] = object_color::black;
-                            } else if (field_object_color == object_color::gray) {
-                                color_map[field_object] = object_color::white;
-                                check_objects.push(field_object);
                             }
                         } else if (current_object_color == object_color::black) {
                             count_map[field_object] = field_object_rc + 1;

@@ -110,7 +110,7 @@ inline void decrement_reference_count(CycleCollector* cycle_collector, HeapObjec
     size_t previous = object->count.fetch_sub(1, std::memory_order_release);
     atomic_thread_fence(std::memory_order_acquire);
     if (previous == 0) {
-        printf("ZERO! [%p]\n", object);
+        printf("ZERO! [%p] : %d %d\n", object, object->async_release.load(), object->state.load());
     }
     if (previous == 1) {
         if (object->is_cyclic_type && object->async_release.load(std::memory_order_acquire)) {
@@ -130,6 +130,9 @@ inline void decrement_reference_count(CycleCollector* cycle_collector, HeapObjec
             auto* field_object = fields[i];
             if (field_object != nullptr) {
                 size_t field_object_previous_rc = field_object->count.fetch_sub(1, std::memory_order_release);
+                if (field_object_previous_rc == 0) {
+                    printf("ZERO FIELD! [%p] : %d %d\n", field_object, field_object->async_release.load(), field_object->state.load());
+                }
                 atomic_thread_fence(std::memory_order_acquire);
                 if (field_object_previous_rc == 1) {
                     if (field_object->is_cyclic_type && field_object->async_release.load(std::memory_order_acquire)) {
